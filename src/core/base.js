@@ -60,6 +60,38 @@ const CURSOR_SCALE = 1.15;
 /** 装饰粒子池容量（每个实例一份，与动效自己的粒子池无关） */
 const CURSOR_MAXP = 900;
 
+/**
+ * 把两个颜色按 t 混合，用于悬停时描边色的平滑过渡。
+ * 支持 #rgb / #rrggbb / rgb() 三种写法；解析失败时返回第二个颜色。
+ */
+function mixHexColor(a, b, t) {
+  const pa = parseColor(a), pb = parseColor(b);
+  if (!pa) return b;
+  if (!pb) return a;
+  const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
+  const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
+  const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
+  return 'rgb(' + r + ',' + g + ',' + bl + ')';
+}
+
+function parseColor(c) {
+  if (typeof c !== 'string') return null;
+  const s = c.trim();
+  if (s.charCodeAt(0) === 35) {                       // #rgb / #rrggbb
+    const h = s.slice(1);
+    if (h.length === 3) {
+      return [parseInt(h[0] + h[0], 16), parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16)];
+    }
+    if (h.length === 6) {
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    return null;
+  }
+  const m = s.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (m) return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])];
+  return null;
+}
+
 /* 覆盖层粒子的类型标记。
    0..3 是光标装饰（寒气/火星/电弧/墨点），4/5 是滚轮粒子（向上/向下）。 */
 const WHEEL_KIND_UP = 4;
@@ -210,6 +242,26 @@ export class CursorEffectElement extends HTMLElement {
      */
     this._cursorVisible = false;
 
+    /**
+     * 悬停状态：鼠标当前悬停在什么类型的元素上。
+     *
+     * 不去为每个状态准备一张独立图形 —— 那样 25 套动效会膨胀成几百个图标。
+     * 这里只记录「宿主元素原本期望什么光标」（pointer / text / move / …），
+     * 绘制时对**已经在画的那个主题光标**做一层状态修饰（缩放、发光、描边），
+     * 所以各动效零改动、零新增素材。
+     *
+     * 判断方式：读该元素计算样式里的 cursor 值 —— 按钮本来就是 pointer、
+     * 输入框是 text、可拖拽元素是 move，因此能自动适配宿主页面，无需逐个标注。
+     */
+    this._hoverKind = '';
+    this._hoverScale = 1;
+    this._hoverGlow = 1;
+    this._hoverEdge = null;
+    // 平滑过渡用的当前值（避免状态切换时突然跳变）
+    this._hoverScaleNow = 1;
+    this._hoverGlowNow = 1;
+    this._hoverEdgeNow = null;
+
     /* ---------- 滚轮动效 ---------- */
     // 默认开启；置 false 或加 no-wheel 属性可动态关闭
     this._wheelEnabled = !(typeof this.hasAttribute === 'function' && this.hasAttribute('no-wheel'));
@@ -263,6 +315,7 @@ export class CursorEffectElement extends HTMLElement {
     this._onVisibilityChange = this._onVisibilityChange.bind(this);
     this._onContextMenu = this._onContextMenu.bind(this);
     this._onWheel = this._onWheel.bind(this);
+    this._onPointerOver = this._onPointerOver.bind(this);
     this._onResize = this._onResize.bind(this);
     this._tick = this._tick.bind(this);
 
@@ -393,6 +446,10 @@ export class CursorEffectElement extends HTMLElement {
     // 与点击、移动一样挂在 window 上，页面任何位置滚动都会响应。
     window.addEventListener('wheel', this._onWheel, { passive: true });
 
+    // 悬停：pointerover 只在「移到新元素上」时触发（不是每次移动），
+    // 所以可以放心在里面读计算样式，不会造成每帧重排。
+    document.addEventListener('pointerover', this._onPointerOver, { passive: true });
+
     this._start();
   }
 
@@ -414,6 +471,7 @@ export class CursorEffectElement extends HTMLElement {
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     window.removeEventListener('contextmenu', this._onContextMenu);
     window.removeEventListener('wheel', this._onWheel);
+    document.removeEventListener('pointerover', this._onPointerOver);
 
     // 主题光标：卸载时释放全局样式引用（引用归零才真正移除）
     if (this._cursorEnabled) releaseHideCursorStyle();
@@ -519,6 +577,8 @@ export class CursorEffectElement extends HTMLElement {
     // 光标移出窗口：标记离开并通知动效（原型在此取消蓄力）
     this.input.inside = false;
     this._cursorVisible = false;
+    // 悬停状态一并清掉，移回来时重新判定
+    this._applyHover('');
     if (typeof this.onPointerLeave === 'function') this.onPointerLeave();
   }
 
@@ -570,6 +630,87 @@ export class CursorEffectElement extends HTMLElement {
     // 上限防止一次超大滚动（或程序化滚动）把势能顶到离谱的值
     const MAX = 2000;
     this._wheelAcc = Math.max(-MAX, Math.min(MAX, this._wheelAcc - dy));
+  }
+
+  /**
+   * 悬停检测：鼠标移到新元素上时，判断它期望什么光标，
+   * 据此给主题光标套一层状态修饰。
+   *
+   * 优先读计算样式的 cursor 值；但它通常被组件自己注入的全局
+   * `cursor: none !important` 覆盖，所以再补一层按标签与属性的语义判断 ——
+   * 按钮、链接、输入框、可拖拽元素这些在宿主页面里本来就有约定。
+   *
+   * pointerover 只在跨越元素边界时触发，不是每次移动都触发，
+   * 因此这里的 getComputedStyle 不会造成每帧重排。
+   */
+  _onPointerOver(e) {
+    if (!this._cursorEnabled) return;
+
+    let el = e.target;
+    if (!el || el.nodeType !== 1) return;
+    // 组件自己的宿主元素不算（虽然它是 pointer-events:none，正常不会被命中）
+    if (el === this) return;
+
+    let kind = '';
+    // 向上找最近的、有交互语义的祖先
+    for (let depth = 0; el && el.nodeType === 1 && depth < 6; depth++) {
+      const cs = getComputedStyle(el);
+      if (cs.pointerEvents === 'none') break;
+
+      const c = cs.cursor;
+      if (c && c !== 'none' && c !== 'auto' && c !== 'default' && c !== 'inherit') {
+        if (c === 'pointer') kind = 'pointer';
+        else if (c === 'text') kind = 'text';
+        else if (c === 'move' || c === 'grab' || c === 'grabbing') kind = 'move';
+        else if (c === 'crosshair') kind = 'crosshair';
+        else if (c === 'help') kind = 'help';
+        else kind = 'pointer';
+        break;
+      }
+
+      // 语义兜底：宿主页面可能把 cursor 写在更外层，或用了别的写法
+      const tag = el.tagName;
+      if (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY' ||
+          el.hasAttribute('role') && el.getAttribute('role') === 'button') { kind = 'pointer'; break; }
+      if (tag === 'INPUT') {
+        const t = (el.getAttribute('type') || 'text').toLowerCase();
+        if (t === 'text' || t === 'search' || t === 'email' || t === 'tel' ||
+            t === 'url' || t === 'password' || t === 'number') { kind = 'text'; break; }
+        kind = 'pointer'; break;
+      }
+      if (tag === 'TEXTAREA' || el.isContentEditable) { kind = 'text'; break; }
+      if (tag === 'SELECT') { kind = 'pointer'; break; }
+      if (tag === 'LABEL') { kind = 'pointer'; break; }
+      if (el.hasAttribute('draggable') && el.getAttribute('draggable') !== 'false') { kind = 'move'; break; }
+
+      el = el.parentElement;
+    }
+
+    this._applyHover(kind);
+  }
+
+  /** 按悬停类型设定目标修饰值（实际绘制时会平滑过渡过去） */
+  _applyHover(kind) {
+    if (kind === this._hoverKind) return;
+    this._hoverKind = kind;
+
+    const MAP = {
+      pointer:   { scale: 1.16, glow: 1.9,  edge: '#ffffff' },
+      text:      { scale: 0.88, glow: 0.7,  edge: '#9fd8ff' },
+      move:      { scale: 1.08, glow: 1.4,  edge: '#ffd166' },
+      crosshair: { scale: 1.02, glow: 1.5,  edge: '#8ff0ff' },
+      help:      { scale: 1.12, glow: 1.6,  edge: '#c9a6ff' }
+    };
+    const p = MAP[kind];
+    if (p) {
+      this._hoverScale = p.scale;
+      this._hoverGlow = p.glow;
+      this._hoverEdge = p.edge;
+    } else {
+      this._hoverScale = 1;
+      this._hoverGlow = 1;
+      this._hoverEdge = null;
+    }
   }
 
   /* ---------- 循环 ---------- */
@@ -685,16 +826,32 @@ export class CursorEffectElement extends HTMLElement {
     ctx.globalAlpha = 1;
 
     if (cursorTheme && this._cursorVisible && inp.inside) {
-      this._drawCursorArrow(ctx, inp.x, inp.y, cursorTheme);
+      this._drawCursorArrow(ctx, inp.x, inp.y, cursorTheme, dt);
     }
   }
 
-  /** 绘制箭头本体：保持标准轮廓，只让描边、填充、发光跟随主题 */
-  _drawCursorArrow(ctx, x, y, theme) {
-    const k = CURSOR_SCALE * (this._cursorDown ? 0.92 : 1);
-    const edge = theme.edge || '#ffffff';
+  /** 绘制箭头本体：保持标准轮廓，只让描边、填充、发光跟随主题与悬停状态 */
+  _drawCursorArrow(ctx, x, y, theme, dt) {
+    // 悬停修饰平滑过渡：避免在元素边界来回移动时缩放与颜色突变
+    const sm = 1 - Math.exp(-16 * (dt || 0.016));
+    this._hoverScaleNow += (this._hoverScale - this._hoverScaleNow) * sm;
+    this._hoverGlowNow  += (this._hoverGlow  - this._hoverGlowNow)  * sm;
+
+    const baseEdge = theme.edge || '#ffffff';
+    // 描边色朝悬停色靠拢
+    if (this._hoverEdge) {
+      const want = mixHexColor(baseEdge, this._hoverEdge, 0.55);
+      this._hoverEdgeNow = this._hoverEdgeNow
+        ? mixHexColor(this._hoverEdgeNow, want, sm)
+        : want;
+    } else if (this._hoverEdgeNow) {
+      this._hoverEdgeNow = mixHexColor(this._hoverEdgeNow, baseEdge, sm);
+    }
+
+    const edge = this._hoverEdgeNow || baseEdge;
+    const k = CURSOR_SCALE * this._hoverScaleNow * (this._cursorDown ? 0.92 : 1);
     const fill = theme.fill || 'rgba(10,14,22,.85)';
-    const glow = theme.glow || edge;
+    const glow = theme.glow || baseEdge;
 
     ctx.save();
     ctx.translate(x, y);
@@ -708,18 +865,18 @@ export class CursorEffectElement extends HTMLElement {
     }
     ctx.closePath();
 
-    // 外发光 + 填充
+    // 外发光 + 填充（发光强度随悬停状态变化）
     ctx.globalCompositeOperation = 'lighter';
     ctx.shadowColor = glow;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 12 * this._hoverGlowNow;
     ctx.fillStyle = fill;
     ctx.fill();
 
     // 主题色描边
     ctx.globalCompositeOperation = 'source-over';
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 6 * this._hoverGlowNow;
     ctx.strokeStyle = edge;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.6 * (1 + (this._hoverScaleNow - 1) * 0.3);
     ctx.lineJoin = 'round';
     ctx.stroke();
 
