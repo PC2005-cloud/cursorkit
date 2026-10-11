@@ -327,6 +327,27 @@
     border: 1px solid var(--line); background: var(--s2); color: var(--fg-dim);
   }
 
+  /* 指向纯净展示页的入口 */
+  .cta-row { margin-top: 22px; }
+  .cta {
+    display: inline-flex; flex-direction: column; gap: 3px;
+    padding: 13px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--s1);
+    text-decoration: none;
+    transition: background .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .cta:hover {
+    background: var(--s2);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    text-decoration: none;
+  }
+  .cta-t { font-size: 13.5px; font-weight: 620; color: var(--fg); }
+  .cta-t::after { content: ' →'; color: var(--accent); }
+  .cta-d { font-size: 12.5px; color: var(--fg-faint); }
+
   /* ---------------- 通用区块 ---------------- */
   section { padding: 92px 0; }
   section + section { border-top: 1px solid var(--line-soft); }
@@ -444,6 +465,7 @@
     <nav class="nav-links">
       <a href="#why">为什么用它</a>
       <a href="#start">快速开始</a>
+      <a href="./show.html">纯净展示页</a>
       <button class="theme-btn" id="themeBtn" type="button" aria-label="切换明暗主题">
         <span class="ic" id="themeIcon">◐</span><span id="themeText">浅色</span>
       </button>
@@ -484,6 +506,13 @@
       （雪花冒寒气、火牙飘火星、闪电打电弧）。移动触发拖尾，<b>左键 / 右键长按可蓄力</b>，松手释放。
       右键菜单已屏蔽，按住 <kbd>Shift</kbd> 再点右键可唤出原生菜单。
     </p>
+
+    <div class="cta-row">
+      <a class="cta" href="./show.html">
+        <span class="cta-t">打开纯净展示页</span>
+        <span class="cta-d">只有黑白底色与一个选择框，画面里只剩光标本身 —— 适合截图与录屏</span>
+      </a>
+    </div>
   </div>
 </div>
 
@@ -609,6 +638,50 @@ fx.cursorEnabled = <span class="k">true</span>;    <span class="c">// 开</span>
 
 <span class="k">&lt;Fx /&gt;</span></pre>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- 纯净展示页 ---------------- -->
+<section id="show">
+  <div class="wrap layer">
+    <div class="reveal">
+      <div class="sec-label">Showcase</div>
+      <h2>纯净展示页</h2>
+      <p class="sec-desc">
+        另开了一个页面，把干扰全部去掉 —— 没有标题、没有说明、没有卡片，
+        整个画面里只剩主题光标和动效本身。适合截图与录屏。
+      </p>
+    </div>
+
+    <div class="grid reveal">
+      <div class="card">
+        <div class="ico">◐</div>
+        <h3>黑白两种底色</h3>
+        <p>一键在<b>纯黑</b>与<b>近白</b>之间切换。注意：这些动效用的是加法混合，深色底才是它们的主场；近白底上光标本身清楚，但拖尾与装饰会明显变淡。</p>
+      </div>
+      <div class="card">
+        <div class="ico">▾</div>
+        <h3>一个选择框切 25 套</h3>
+        <p>完全自定义的下拉（不是原生 <code>&lt;select&gt;</code>），列出全部 25 套动效，点击即切换。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⬚</div>
+        <h3>控件不挡鼠标轨迹</h3>
+        <p>底部控件容器设了 <code>pointer-events: none</code>，只有按钮本身接收点击 —— 空白处划过不会中断拖尾。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⬇</div>
+        <h3>怎么用它</h3>
+        <p>选好动效与底色，移动鼠标让效果铺满画面，然后截图或录屏。导航栏里的「纯净展示页」也可以随时进入。</p>
+      </div>
+    </div>
+
+    <div class="cta-row reveal" style="margin-top:26px">
+      <a class="cta" href="./show.html">
+        <span class="cta-t">立即打开</span>
+        <span class="cta-d">show.html</span>
+      </a>
     </div>
   </div>
 </section>
