@@ -163,6 +163,26 @@ function buildWhiteSprite(doc) {
 }
 
 export class CursorRainbow extends CursorEffectElement {
+  /**
+   * 滚轮动效：彩色电弧折线，沿滚动方向拉出短促折线。
+   */
+  wheelTheme() {
+    return {
+      style: 'arc',
+      color:  [201, 166, 255],
+      color2: [255, 220, 150],
+      sizeMin: 4, sizeMax: 10,
+      lifeMin: 0.12, lifeMax: 0.3,
+      upSpeed: 260,
+      downSpeed: 240,
+      spread: 90,
+      drag: 1.8,
+      spin: 2,
+      arcChance: 1,
+      jitter: 10
+    };
+  }
+
   /** 主题光标：紫调描边 + 电弧装饰 */
   cursorTheme() {
     return {

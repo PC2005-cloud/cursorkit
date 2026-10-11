@@ -1317,6 +1317,26 @@ function drawChargeVisuals(ctx, s) {
 }
 
 export class CursorBall extends CursorEffectElement {
+  /**
+   * 滚轮动效：彩球弹出后受重力回落，弹跳感。
+   */
+  wheelTheme() {
+    return {
+      style: 'drop',
+      color:  [127, 227, 255],
+      color2: [255, 200, 120],
+      sizeMin: 2.6, sizeMax: 6,
+      lifeMin: 0.6, lifeMax: 1.2,
+      upSpeed: 400,
+      downSpeed: 260,
+      spread: 110,
+      gravity: 700,          // 强重力 → 明显抛物线
+      drag: 0.4,
+      spin: 2,
+      jitter: 9
+    };
+  }
+
   /** 主题光标：青蓝描边 + 电弧装饰 */
   cursorTheme() {
     return {

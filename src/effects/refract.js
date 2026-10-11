@@ -234,6 +234,26 @@ function makeShard(x, y, ang, sp) {
 }
 
 export class CursorRefract extends CursorEffectElement {
+  /**
+   * 滚轮动效：棱镜碎片向滚动方向飞散，自转产生折光感。
+   */
+  wheelTheme() {
+    return {
+      style: 'shard',
+      color:  [143, 240, 255],
+      color2: [255, 190, 255],
+      sizeMin: 2.2, sizeMax: 5.5,
+      lifeMin: 0.4, lifeMax: 0.85,
+      upSpeed: 360,
+      downSpeed: 320,
+      spread: 150,
+      gravity: 260,
+      drag: 0.9,
+      spin: 7,
+      jitter: 8
+    };
+  }
+
   /** 主题光标：棱镜青描边 + 电弧装饰 */
   cursorTheme() {
     return {

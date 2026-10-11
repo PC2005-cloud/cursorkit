@@ -1154,6 +1154,26 @@ function drawParticle(ctx, s, p) {
 }
 
 export class CursorFirework extends CursorEffectElement {
+  /**
+   * 滚轮动效：烟花式火星四射，初速大、散得开、快速熄灭。
+   */
+  wheelTheme() {
+    return {
+      style: 'spray',
+      color:  [255, 176, 102],
+      color2: [255, 240, 180],
+      sizeMin: 1.4, sizeMax: 4,
+      lifeMin: 0.3, lifeMax: 0.75,
+      upSpeed: 460,
+      downSpeed: 380,
+      spread: 260,           // 放射状
+      gravity: 300,
+      drag: 1.1,
+      turbulence: 22,
+      jitter: 8
+    };
+  }
+
   /** 主题光标：暖橙描边 + 火星装饰 */
   cursorTheme() {
     return {

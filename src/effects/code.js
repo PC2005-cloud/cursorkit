@@ -180,6 +180,25 @@ function randomCodeLine(n) {
 }
 
 export class CursorCode extends CursorEffectElement {
+  /**
+   * 滚轮动效：字符方块成串弹出，走直线、不旋转，像数据流。
+   */
+  wheelTheme() {
+    return {
+      style: 'block',
+      color:  [124, 242, 154],
+      color2: [220, 255, 235],
+      sizeMin: 1.4, sizeMax: 3,
+      lifeMin: 0.3, lifeMax: 0.65,
+      upSpeed: 420,
+      downSpeed: 420,
+      spread: 34,
+      drag: 0.3,
+      spin: 0,
+      jitter: 5
+    };
+  }
+
   /** 主题光标：终端绿描边 + 墨点装饰 */
   cursorTheme() {
     return {

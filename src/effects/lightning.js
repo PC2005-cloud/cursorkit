@@ -187,6 +187,26 @@ function regenInnerArc(ia, r) {
 }
 
 export class CursorLightning extends CursorEffectElement {
+  /**
+   * 滚轮动效：闪电折线，全部走折线形态，寿命极短、爆发快。
+   */
+  wheelTheme() {
+    return {
+      style: 'arc',
+      color:  [255, 232, 120],
+      color2: [255, 255, 255],
+      sizeMin: 4, sizeMax: 12,
+      lifeMin: 0.08, lifeMax: 0.22,
+      upSpeed: 420,
+      downSpeed: 420,
+      spread: 150,
+      drag: 2.0,
+      spin: 2,
+      arcChance: 1,
+      jitter: 12
+    };
+  }
+
   /** 主题光标：亮黄描边 + 电弧装饰 */
   cursorTheme() {
     return {

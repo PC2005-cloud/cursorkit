@@ -1029,6 +1029,26 @@ function drawWaveLines(ctx, s) {
 }
 
 export class CursorFish extends CursorEffectElement {
+  /**
+   * 滚轮动效：水花四散，横向散得很开，快速衰减。
+   */
+  wheelTheme() {
+    return {
+      style: 'spray',
+      color:  [127, 232, 240],
+      color2: [220, 255, 255],
+      sizeMin: 1.4, sizeMax: 3.6,
+      lifeMin: 0.25, lifeMax: 0.6,
+      upSpeed: 300,
+      downSpeed: 260,
+      spread: 200,           // 四散
+      gravity: 380,
+      drag: 1.6,
+      turbulence: 28,
+      jitter: 10
+    };
+  }
+
   /** 主题光标：水青描边 + 寒气装饰 */
   cursorTheme() {
     return {

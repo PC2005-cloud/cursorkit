@@ -1398,6 +1398,25 @@ function drawGridFx(ctx, s) {
 }
 
 export class CursorPixel extends CursorEffectElement {
+  /**
+   * 滚轮动效：方块沿网格方向弹出，几乎无阻尼，走直线。
+   */
+  wheelTheme() {
+    return {
+      style: 'block',
+      color:  [94, 242, 232],
+      color2: [200, 255, 250],
+      sizeMin: 1.6, sizeMax: 3.4,
+      lifeMin: 0.25, lifeMax: 0.5,
+      upSpeed: 380,
+      downSpeed: 380,
+      spread: 30,            // 横向很窄 → 像一条方块流
+      drag: 0,               // 无阻尼，保持直线
+      spin: 0,               // 方块不转，保持像素感
+      jitter: 4
+    };
+  }
+
   /** 主题光标：霓虹青描边 + 电弧装饰 */
   cursorTheme() {
     return {

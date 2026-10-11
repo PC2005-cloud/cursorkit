@@ -208,6 +208,27 @@ const GRAN_OUTER = [];
 })();
 
 export class CursorSun extends CursorEffectElement {
+  /**
+   * 滚轮动效：金色光斑向上喷发并迅速扩散，像日冕抛出。
+   */
+  wheelTheme() {
+    return {
+      style: 'puff',
+      color:  [255, 209, 102],
+      color2: [255, 150, 40],
+      sizeMin: 3, sizeMax: 9,
+      lifeMin: 0.35, lifeMax: 0.8,
+      upSpeed: 320,
+      downSpeed: 220,
+      spread: 120,
+      gravity: -120,         // 上飘
+      drag: 1.4,
+      turbulence: 30,
+      grow: 12,              // 迅速膨胀
+      jitter: 10
+    };
+  }
+
   /** 主题光标：金色描边 + 火星装饰 */
   cursorTheme() {
     return {

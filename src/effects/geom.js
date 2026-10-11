@@ -463,6 +463,26 @@ function drawNet(ctx, p) {
 }
 
 export class CursorGeom extends CursorEffectElement {
+  /**
+   * 滚轮动效：几何棱片旋转飞出，带明显自转与重力。
+   */
+  wheelTheme() {
+    return {
+      style: 'shard',
+      color:  [157, 184, 232],
+      color2: [220, 235, 255],
+      sizeMin: 2.4, sizeMax: 6.5,
+      lifeMin: 0.5, lifeMax: 1.0,
+      upSpeed: 330,
+      downSpeed: 290,
+      spread: 120,
+      gravity: 380,
+      drag: 0.8,
+      spin: 6,
+      jitter: 8
+    };
+  }
+
   /** 主题光标：钢蓝描边 + 电弧装饰 */
   cursorTheme() {
     return {

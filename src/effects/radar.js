@@ -1440,6 +1440,26 @@ function renderScene(s) {
 }
 
 export class CursorRadar extends CursorEffectElement {
+  /**
+   * 滚轮动效：扫描线状电弧沿滚动方向拉出，规整、克制。
+   */
+  wheelTheme() {
+    return {
+      style: 'arc',
+      color:  [143, 240, 168],
+      color2: [200, 255, 220],
+      sizeMin: 5, sizeMax: 12,
+      lifeMin: 0.14, lifeMax: 0.32,
+      upSpeed: 300,
+      downSpeed: 300,
+      spread: 40,            // 收得窄 → 像扫描线
+      drag: 1.4,
+      spin: 1.6,
+      arcChance: 1,
+      jitter: 6
+    };
+  }
+
   /** 主题光标：雷达绿描边 + 电弧装饰 */
   cursorTheme() {
     return {

@@ -1881,6 +1881,26 @@ function renderFrame(ctx, s) {
 }
 
 export class CursorCell extends CursorEffectElement {
+  /**
+   * 滚轮动效：细胞圆点分裂般膨胀，慢速漂移、明显长大。
+   */
+  wheelTheme() {
+    return {
+      style: 'drop',
+      color:  [143, 240, 184],
+      color2: [200, 255, 220],
+      sizeMin: 2.5, sizeMax: 6,
+      lifeMin: 0.8, lifeMax: 1.6,
+      upSpeed: 120,
+      downSpeed: 100,
+      spread: 60,
+      drag: 2.0,
+      turbulence: 16,
+      grow: 11,              // 分裂感
+      jitter: 13
+    };
+  }
+
   /** 主题光标：生绿描边 + 墨点装饰 */
   cursorTheme() {
     return {

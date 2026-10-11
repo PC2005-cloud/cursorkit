@@ -1254,6 +1254,27 @@ function updateFx(s, dt) {
 }
 
 export class CursorBubble extends CursorEffectElement {
+  /**
+   * 滚轮动效：气泡向上浮升，边浮边胀大，带横向摆动。
+   */
+  wheelTheme() {
+    return {
+      style: 'drop',
+      color:  [168, 240, 255],
+      color2: [255, 255, 255],
+      sizeMin: 2.4, sizeMax: 6,
+      lifeMin: 0.7, lifeMax: 1.4,
+      upSpeed: 160,
+      downSpeed: 90,
+      spread: 44,
+      gravity: -180,         // 持续上浮
+      drag: 1.0,
+      turbulence: 30,
+      grow: 7,
+      jitter: 13
+    };
+  }
+
   /** 主题光标：水青描边 + 寒气装饰 */
   cursorTheme() {
     return {

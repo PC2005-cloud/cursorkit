@@ -1470,6 +1470,26 @@ function drawFrame(s) {
    组件
    ================================================================== */
 export class CursorMist extends CursorEffectElement {
+  /**
+   * 滚轮动效：雾团缓慢散开并变淡，几乎没有初速，靠膨胀铺开。
+   */
+  wheelTheme() {
+    return {
+      style: 'puff',
+      color:  [184, 200, 220],
+      color2: [220, 232, 245],
+      sizeMin: 5, sizeMax: 13,
+      lifeMin: 0.9, lifeMax: 1.8,
+      upSpeed: 70,
+      downSpeed: 60,
+      spread: 60,
+      drag: 2.6,             // 很快停下
+      turbulence: 22,
+      grow: 16,              // 主要靠膨胀
+      jitter: 18
+    };
+  }
+
   /** 主题光标：灰蓝描边 + 寒气装饰 */
   cursorTheme() {
     return {

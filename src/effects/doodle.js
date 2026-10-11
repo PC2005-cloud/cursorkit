@@ -1204,6 +1204,26 @@ function drawWave(ctx, w) {
 }
 
 export class CursorDoodle extends CursorEffectElement {
+  /**
+   * 滚轮动效：涂鸦碎片乱飞，自转强、方向杂，随性。
+   */
+  wheelTheme() {
+    return {
+      style: 'shard',
+      color:  [255, 209, 102],
+      color2: [255, 120, 160],
+      sizeMin: 2, sizeMax: 5,
+      lifeMin: 0.4, lifeMax: 0.9,
+      upSpeed: 300,
+      downSpeed: 300,
+      spread: 220,           // 横向散得开 → 乱
+      gravity: 200,
+      drag: 1.2,
+      spin: 9,               // 自转很猛
+      jitter: 18
+    };
+  }
+
   /** 主题光标：彩调描边 + 墨点装饰 */
   cursorTheme() {
     return {

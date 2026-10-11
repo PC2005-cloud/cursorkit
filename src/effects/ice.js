@@ -347,6 +347,26 @@ function drawParticle(ctx, p, time) {
 }
 
 export class CursorIce extends CursorEffectElement {
+  /**
+   * 滚轮动效：冰晶碎片向滚动方向迸射，带重力下坠。
+   */
+  wheelTheme() {
+    return {
+      style: 'shard',
+      color:  [191, 233, 255],
+      color2: [140, 200, 240],
+      sizeMin: 2.6, sizeMax: 6,
+      lifeMin: 0.5, lifeMax: 1.0,
+      upSpeed: 340,
+      downSpeed: 300,
+      spread: 130,
+      gravity: 420,          // 碎片被重力拉回，形成抛物弧
+      drag: 0.7,
+      spin: 5,               // 快速自转，锋利感
+      jitter: 7
+    };
+  }
+
   /** 主题光标：淡青描边 + 寒气装饰 */
   cursorTheme() {
     return {

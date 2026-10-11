@@ -1253,6 +1253,26 @@ function drawDrop(s, d) {
 }
 
 export class CursorInk extends CursorEffectElement {
+  /**
+   * 滚轮动效：墨团晕开，初速很小但膨胀明显，边缘柔和。
+   */
+  wheelTheme() {
+    return {
+      style: 'ink',
+      color:  [120, 140, 175],
+      color2: [60, 75, 100],
+      sizeMin: 3, sizeMax: 7,
+      lifeMin: 0.7, lifeMax: 1.5,
+      upSpeed: 100,
+      downSpeed: 80,
+      spread: 55,
+      drag: 2.4,
+      turbulence: 20,
+      grow: 14,              // 主要靠晕开
+      jitter: 14
+    };
+  }
+
   /** 主题光标：灰蓝描边 + 墨点装饰 */
   cursorTheme() {
     return {

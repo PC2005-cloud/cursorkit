@@ -129,6 +129,26 @@ function makeParticle() {
 }
 
 export class CursorOrb extends CursorEffectElement {
+  /**
+   * 滚轮动效：光球边飞边膨胀，像能量球被抛出。
+   */
+  wheelTheme() {
+    return {
+      style: 'puff',
+      color:  [127, 216, 255],
+      color2: [200, 240, 255],
+      sizeMin: 3, sizeMax: 7,
+      lifeMin: 0.45, lifeMax: 0.9,
+      upSpeed: 280,
+      downSpeed: 240,
+      spread: 100,
+      drag: 1.6,
+      grow: 10,
+      turbulence: 16,
+      jitter: 8
+    };
+  }
+
   /** 主题光标：亮青描边 + 电弧装饰 */
   cursorTheme() {
     return {

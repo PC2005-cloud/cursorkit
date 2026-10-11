@@ -1739,6 +1739,27 @@ function renderFrame(ctx, s) {
 }
 
 export class CursorMoon extends CursorEffectElement {
+  /**
+   * 滚轮动效：月尘缓缓飘落，带轻微横向漂移与自转。
+   */
+  wheelTheme() {
+    return {
+      style: 'flake',
+      color:  [230, 236, 255],
+      color2: [200, 215, 255],
+      sizeMin: 2, sizeMax: 4.5,
+      lifeMin: 1.0, lifeMax: 2.0,
+      upSpeed: 90,
+      downSpeed: 60,
+      spread: 40,
+      gravity: 130,
+      drag: 0.8,
+      turbulence: 26,
+      spin: 1.2,
+      jitter: 16
+    };
+  }
+
   /** 主题光标：月白描边 + 寒气装饰 */
   cursorTheme() {
     return {

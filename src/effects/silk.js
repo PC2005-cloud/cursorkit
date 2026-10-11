@@ -166,6 +166,27 @@ class Sheet {
 }
 
 export class CursorSilk extends CursorEffectElement {
+  /**
+   * 滚轮动效：绸缎状的长条缓慢飘动，几乎不受重力，靠阻尼收束。
+   */
+  wheelTheme() {
+    return {
+      style: 'shard',
+      color:  [242, 232, 213],
+      color2: [200, 180, 150],
+      sizeMin: 3.5, sizeMax: 9,
+      lifeMin: 0.8, lifeMax: 1.6,
+      upSpeed: 130,
+      downSpeed: 110,
+      spread: 70,
+      drag: 2.2,             // 强阻尼 → 出去就慢下来，像绸缎
+      turbulence: 18,
+      spin: 0.6,             // 缓慢自转
+      grow: 2,
+      jitter: 12
+    };
+  }
+
   /** 主题光标：米白描边 + 墨点装饰 */
   cursorTheme() {
     return {

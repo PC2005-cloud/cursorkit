@@ -58,7 +58,17 @@ const CURSOR_ARROW = [
 const CURSOR_SCALE = 1.15;
 
 /** 装饰粒子池容量（每个实例一份，与动效自己的粒子池无关） */
-const CURSOR_MAXP = 700;
+const CURSOR_MAXP = 900;
+
+/* 覆盖层粒子的类型标记。
+   0..3 是光标装饰（寒气/火星/电弧/墨点），4/5 是滚轮粒子（向上/向下）。 */
+const WHEEL_KIND_UP = 4;
+const WHEEL_KIND_DOWN = 5;
+
+/* 滚轮势能的消耗参数 */
+const WHEEL_DRAIN = 2.5;     // 每帧基础消耗量：越大效果消耗越快
+const WHEEL_DECAY = 0.92;    // 每帧自然衰减系数：避免势能长时间残留
+const WHEEL_MAX_PER_FRAME = 80;   // 单帧最多生成多少粒子（防极端滚动瞬间刷屏）
 
 /**
  * 隐藏原生光标的全局样式。
@@ -95,11 +105,11 @@ function releaseHideCursorStyle() {
 
 export class CursorEffectElement extends HTMLElement {
   /**
-   * 监听 no-cursor 属性，使 <cursor-snow no-cursor> 这类写法实时生效，
+   * 监听这两个属性，使 <cursor-snow no-cursor> / no-wheel 实时生效，
    * 不需要重新挂载组件。
    */
   static get observedAttributes() {
-    return ['no-cursor'];
+    return ['no-cursor', 'no-wheel'];
   }
 
   /**
@@ -129,6 +139,51 @@ export class CursorEffectElement extends HTMLElement {
     return null;
   }
 
+  /**
+   * 滚轮动效外观。子类覆写以给出自己的配色与**运动方式**。
+   * 返回 null 表示不响应滚轮。
+   *
+   * 设计意图：25 套主题应该各有各的机制，不是只换颜色 ——
+   * 火焰上飘、冰晶下坠、闪电折线、气泡上浮、墨点扩散、像素方块……
+   * 靠下面这些参数组合出差异。
+   *
+   * @returns {null | {
+   *   color?:  [number, number, number],   // 主色 RGB
+   *   color2?: [number, number, number],   // 辅色（做层次）
+   *
+   *   // —— 形态 ——
+   *   style?: 'puff'     柔和圆形辉光（火焰、云雾、光球…）
+   *         | 'shard'    细长碎片，沿运动方向拉长（冰晶、几何体…）
+   *         | 'spray'    亮芯 + 短拖尾（火星、火花、粒子…）
+   *         | 'drop'     带高光的圆点（水滴、气泡、细胞…）
+   *         | 'spark'    小十字星芒（星光、闪光…）
+   *         | 'arc'      短促折线（闪电、电弧…）
+   *         | 'ink'      柔和晕染的暗色团（水墨、烟雾…）
+   *         | 'block'    方块（像素、代码…）
+   *         | 'flake'    六角雪花（雪花、冰晶…）
+   *   sizeMin?: number, sizeMax?: number,
+   *   lifeMin?: number, lifeMax?: number,
+   *
+   *   // —— 运动 ——
+   *   upSpeed?: number,      // 向上滚的基准初速（px/s，正值向上）
+   *   downSpeed?: number,    // 向下滚的基准初速（正值向下）
+   *   spread?: number,       // 横向散布（px/s）
+   *   gravity?: number,      // 纵向加速度（px/s²，正值向下拉；负值上飘）
+   *   drag?: number,         // 阻尼强度（每秒，越大越粘滞）
+   *   turbulence?: number,   // 横向扰动强度（px/s²，做出飘忽感）
+   *   spin?: number,         // 自转速度（rad/s，正值逆时针）
+   *   grow?: number,         // 每秒尺寸增长（px/s，火焰散开、墨点扩散）
+   *
+   *   // —— 生成 ——
+   *   jitter?: number,       // 生成点随机偏移（px）
+   *   arcChance?: number,    // 0~1，多大比例的粒子走"折线"而不是直线（电弧感）
+   *   ringChance?: number    // 0~1，多大比例在光标处生成一圈扩散的环
+   * }}
+   */
+  wheelTheme() {
+    return null;
+  }
+
   constructor() {
     super();
 
@@ -154,6 +209,18 @@ export class CursorEffectElement extends HTMLElement {
      * 页面刚加载、鼠标还没动时，箭头就会凭空出现在屏幕正中。
      */
     this._cursorVisible = false;
+
+    /* ---------- 滚轮动效 ---------- */
+    // 默认开启；置 false 或加 no-wheel 属性可动态关闭
+    this._wheelEnabled = !(typeof this.hasAttribute === 'function' && this.hasAttribute('no-wheel'));
+    /**
+     * 滚轮「势能」累计值，带符号：
+     *   向上滚 → 增大（正）；向下滚 → 减小（负）。
+     * 上下交替会自然抵消；即使停止滚动，这个值也会持续消耗、产出效果，
+     * 直到被消耗完或自然衰减掉。方向由符号决定，强度由绝对值决定。
+     */
+    this._wheelAcc = 0;
+
     // 装饰粒子池（每个实例独立，与动效自己的粒子池互不影响）
     this._curPool = null;
     this._curAcc = 0;
@@ -195,6 +262,7 @@ export class CursorEffectElement extends HTMLElement {
     this._onPointerEnter = this._onPointerEnter.bind(this);
     this._onVisibilityChange = this._onVisibilityChange.bind(this);
     this._onContextMenu = this._onContextMenu.bind(this);
+    this._onWheel = this._onWheel.bind(this);
     this._onResize = this._onResize.bind(this);
     this._tick = this._tick.bind(this);
 
@@ -225,11 +293,24 @@ export class CursorEffectElement extends HTMLElement {
     }
   }
 
-  /** 属性 <cursor-xxx no-cursor> 与 cursorEnabled 联动 */
+  /** 滚轮动效是否启用。赋值即可实时开关，无需重新挂载。 */
+  get wheelEnabled() {
+    return this._wheelEnabled;
+  }
+
+  set wheelEnabled(on) {
+    const next = !!on;
+    if (next === this._wheelEnabled) return;
+    this._wheelEnabled = next;
+    // 关闭时把已积累的势能清掉，避免重新开启后突然喷出一大片
+    if (!next) this._wheelAcc = 0;
+  }
+
+  /** 属性 <cursor-xxx no-cursor> / <cursor-xxx no-wheel> 与开关联动 */
   attributeChangedCallback(name, oldValue, newValue) {
-    if (name === 'no-cursor' && oldValue !== newValue) {
-      this.cursorEnabled = (newValue === null);
-    }
+    if (oldValue === newValue) return;
+    if (name === 'no-cursor') this.cursorEnabled = (newValue === null);
+    else if (name === 'no-wheel') this.wheelEnabled = (newValue === null);
   }
 
   _resetCursorDeco() {
@@ -308,6 +389,10 @@ export class CursorEffectElement extends HTMLElement {
     // 原型的 contextmenu preventDefault 行为与此一致。
     window.addEventListener('contextmenu', this._onContextMenu);
 
+    // 滚轮：passive 表示绝不拦截页面滚动，只做旁路观测。
+    // 与点击、移动一样挂在 window 上，页面任何位置滚动都会响应。
+    window.addEventListener('wheel', this._onWheel, { passive: true });
+
     this._start();
   }
 
@@ -328,6 +413,7 @@ export class CursorEffectElement extends HTMLElement {
     document.removeEventListener(fam + 'enter', this._onPointerEnter);
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     window.removeEventListener('contextmenu', this._onContextMenu);
+    window.removeEventListener('wheel', this._onWheel);
 
     // 主题光标：卸载时释放全局样式引用（引用归零才真正移除）
     if (this._cursorEnabled) releaseHideCursorStyle();
@@ -461,6 +547,31 @@ export class CursorEffectElement extends HTMLElement {
     e.preventDefault();
   }
 
+  /**
+   * 滚轮：把滚动量累加进带符号的「势能」。
+   *
+   * 这里只做累加，不直接产生效果 —— 效果由每帧按消耗率从势能里支取，
+   * 所以快速滚动会变成一次持续喷发，慢慢滚则是细水长流；
+   * 上下交替滚动会自然抵消（符号相反）。
+   *
+   * 注意 deltaY 的符号：向上滚为负，所以取反后「向上 = 正」。
+   * 监听器是 passive 的，绝不 preventDefault，页面滚动完全不受影响。
+   */
+  _onWheel(e) {
+    if (!this._wheelEnabled) return;
+    if (typeof this.wheelTheme !== 'function' || !this.wheelTheme()) return;
+
+    // 不同设备/浏览器给的单位不同：0=像素，1=行，2=页。
+    // 换算成像素再累加，避免触控板与滚轮鼠标的量级差出几十倍。
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) dy *= 16;         // 行 → 约 16px
+    else if (e.deltaMode === 2) dy *= 100;   // 页 → 约 100px
+
+    // 上限防止一次超大滚动（或程序化滚动）把势能顶到离谱的值
+    const MAX = 2000;
+    this._wheelAcc = Math.max(-MAX, Math.min(MAX, this._wheelAcc - dy));
+  }
+
   /* ---------- 循环 ---------- */
 
   _start() {
@@ -511,8 +622,9 @@ export class CursorEffectElement extends HTMLElement {
     if (typeof this.update === 'function') this.update(dt, this.state);
     if (typeof this.render === 'function') this.render(this.state);
 
-    // 主题光标画在最后 —— 必须盖在动效之上，否则会被拖尾、粒子埋掉
-    this._renderCursor(dt);
+    // 主题光标与滚轮动效画在最后 —— 必须盖在动效之上，
+    // 否则会被拖尾、粒子埋掉。两者共用一个粒子池与一次遍历。
+    this._renderOverlay(dt);
 
     // 帧末记录事件级锚点：供下一帧计算「最后一段位移」的速度
     inp.lx = inp.x;
@@ -523,12 +635,19 @@ export class CursorEffectElement extends HTMLElement {
      主题光标：自绘箭头 + 围绕装饰
      ============================================================ */
 
-  /** 每帧绘制光标。关闭时不做任何事，动效本身照常运行。 */
-  _renderCursor(dt) {
-    if (!this._cursorEnabled || !this._ctx) return;
+  /**
+   * 每帧绘制「覆盖层」：主题光标 + 滚轮动效。
+   * 两者都关掉、或都无主题时直接返回，动效本身照常运行。
+   */
+  _renderOverlay(dt) {
+    if (!this._ctx) return;
 
-    const theme = typeof this.cursorTheme === 'function' ? this.cursorTheme() : null;
-    if (!theme) return;
+    const cursorTheme = (this._cursorEnabled && typeof this.cursorTheme === 'function')
+      ? this.cursorTheme() : null;
+    const wheelTheme = (this._wheelEnabled && typeof this.wheelTheme === 'function')
+      ? this.wheelTheme() : null;
+
+    if (!cursorTheme && !wheelTheme) return;
 
     const ctx = this._ctx;
     const inp = this.input;
@@ -541,24 +660,33 @@ export class CursorEffectElement extends HTMLElement {
     const sm = 1 - Math.exp(-25 * dt);
     this._curSpeed += (iv - this._curSpeed) * sm;
 
-    if (this._cursorVisible && inp.inside) this._emitCursorDeco(dt, theme);
-    this._updateCursorDeco(dt);
+    if (cursorTheme && this._cursorVisible && inp.inside) this._emitCursorDeco(dt, cursorTheme);
+    if (wheelTheme) this._emitWheel(dt, wheelTheme);
+    this._updateOverlayParticles(dt);
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
 
-    // 装饰先画（在箭头下层）
+    // 粒子先画（在箭头下层）
     for (let i = 0; i < CURSOR_MAXP; i++) {
       const p = this._curPool[i];
-      if (p.on) this._drawCursorDeco(ctx, p, theme);
+      if (!p.on) continue;
+      // 滚轮粒子单独绘制，语义与光标装饰不同
+      if (p.kind === WHEEL_KIND_UP || p.kind === WHEEL_KIND_DOWN) {
+        if (wheelTheme) this._drawWheelParticle(ctx, p, wheelTheme);
+      } else if (cursorTheme) {
+        this._drawCursorDeco(ctx, p, cursorTheme);
+      }
     }
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
 
-    if (this._cursorVisible && inp.inside) this._drawCursorArrow(ctx, inp.x, inp.y, theme);
+    if (cursorTheme && this._cursorVisible && inp.inside) {
+      this._drawCursorArrow(ctx, inp.x, inp.y, cursorTheme);
+    }
   }
 
   /** 绘制箭头本体：保持标准轮廓，只让描边、填充、发光跟随主题 */
@@ -668,6 +796,249 @@ export class CursorEffectElement extends HTMLElement {
     }
   }
 
+  /**
+   * 滚轮动效：从「势能」里按消耗率支取，逐帧生成粒子。
+   *
+   * 势能是带符号的累计值（向上为正）。这里每帧：
+   *   1. 自然衰减一点（避免长期残留）；
+   *   2. 按绝对值决定消耗速率 —— 滚得越猛，消耗越快、喷发越强；
+   *   3. 按符号决定方向，按消耗量决定粒子数；
+   *   4. 每发一个粒子就从势能里扣掉一个单位。
+   *
+   * 效果总量因此正比于累计值：滚到 1000 会陆续发出约 1000/WHEEL_DRAIN 个粒子，
+   * 而不是一瞬间全放出来。
+   */
+  _emitWheel(dt, theme) {
+    let acc = this._wheelAcc;
+
+    // 自然衰减
+    acc *= WHEEL_DECAY;
+
+    const mag = Math.abs(acc);
+    if (mag < 0.5) { this._wheelAcc = 0; return; }
+
+    // 消耗速率随势能增强，但有上限；每帧至少消耗一点，保证最终会耗尽
+    const rate = Math.min(mag * 0.18, 60) + WHEEL_DRAIN;
+    const consume = rate * dt;
+
+    let n = Math.floor(consume / WHEEL_DRAIN);
+    if (n < 1) n = 1;
+    if (n > WHEEL_MAX_PER_FRAME) n = WHEEL_MAX_PER_FRAME;
+
+    const spent = n * WHEEL_DRAIN;
+    const up = acc > 0;
+    acc -= up ? spent : -spent;
+    // 消耗可能跨过零点（反向），钳住避免符号乱跳
+    if (up && acc < 0) acc = 0;
+    if (!up && acc > 0) acc = 0;
+    this._wheelAcc = acc;
+
+    const inp = this.input;
+    const jitter = theme.jitter == null ? 8 : theme.jitter;
+    const sizeMin = theme.sizeMin == null ? 2 : theme.sizeMin;
+    const sizeMax = theme.sizeMax == null ? 5 : theme.sizeMax;
+    const lifeMin = theme.lifeMin == null ? 0.35 : theme.lifeMin;
+    const lifeMax = theme.lifeMax == null ? 0.8 : theme.lifeMax;
+    const upSpeed = theme.upSpeed == null ? 220 : theme.upSpeed;
+    const downSpeed = theme.downSpeed == null ? 220 : theme.downSpeed;
+    const spread = theme.spread == null ? 90 : theme.spread;
+    const gravity = theme.gravity == null ? 0 : theme.gravity;
+    const drag = theme.drag == null ? 0 : theme.drag;
+    const turb = theme.turbulence == null ? 0 : theme.turbulence;
+    const spin = theme.spin == null ? 0 : theme.spin;
+    const grow = theme.grow == null ? 0 : theme.grow;
+    const arcChance = theme.arcChance == null ? 0 : theme.arcChance;
+
+    for (let i = 0; i < n; i++) {
+      const p = this._nextCursorParticle();
+      p.on = true;
+      p.life = 0;
+      p.kind = up ? WHEEL_KIND_UP : WHEEL_KIND_DOWN;
+      p.x = inp.x + (Math.random() - 0.5) * jitter * 2;
+      p.y = inp.y + (Math.random() - 0.5) * jitter * 2;
+      p.vx = (Math.random() - 0.5) * spread;
+      // 向上滚 → 粒子向上（屏幕坐标 y 减小）
+      const base = up ? -upSpeed : downSpeed;
+      p.vy = base * (0.55 + Math.random() * 0.9);
+      p.size = sizeMin + Math.random() * (sizeMax - sizeMin);
+      p.maxLife = lifeMin + Math.random() * (lifeMax - lifeMin);
+      p.rot = Math.random() * Math.PI * 2;
+      p.rotV = (Math.random() - 0.5) * 2 * spin;
+
+      // 逐粒子的运动参数（存在粒子上，绘制与更新时读取）
+      p.wGrav = gravity;
+      p.wDrag = drag;
+      p.wTurb = turb;
+      p.wGrow = grow;
+      // 一部分粒子走折线，做出电弧感
+      p.wArc = Math.random() < arcChance;
+      // 双色随机取用，做层次（不用 rotV 判断，避免与自转耦合）
+      p.wAlt = Math.random() < 0.45;
+    }
+  }
+
+  /** 绘制滚轮粒子。flame 走柔和的圆形辉光，其余走亮芯 + 拖尾。 */
+  _drawWheelParticle(ctx, p, theme) {
+    const c1 = theme.color || [255, 170, 80];
+    const c2 = theme.color2 || c1;
+    // 双色交替取用，做出层次
+    const c = p.wAlt ? c2 : c1;
+
+    const k = p.life / p.maxLife;
+    const a = 1 - k;
+    const style = theme.style || 'puff';
+    const rgba = (al) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + al.toFixed(3) + ')';
+
+    if (style === 'puff') {
+      // 柔和圆形辉光，中心偏白：火焰、云雾、光球
+      ctx.globalCompositeOperation = 'lighter';
+      const r = p.size * (1 + k * 0.7);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, 'rgba(255,255,255,' + (a * 0.5).toFixed(3) + ')');
+      g.addColorStop(0.35, rgba(a * 0.6));
+      g.addColorStop(1, rgba(0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, 6.2832);
+      ctx.fill();
+
+    } else if (style === 'spray') {
+      // 亮芯 + 短拖尾：火星、火花
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(a * 0.75);
+      ctx.lineWidth = p.size * 0.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 0.02, p.y - p.vy * 0.02);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,' + (a * 0.85).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 0.55, 0, 6.2832);
+      ctx.fill();
+
+    } else if (style === 'shard') {
+      // 细长碎片，沿运动方向拉长并自转：冰晶、几何体
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = rgba(a * 0.85);
+      const L = p.size * 2.6, W = p.size * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(0, -L);
+      ctx.lineTo(W, 0);
+      ctx.lineTo(0, L);
+      ctx.lineTo(-W, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,' + (a * 0.45).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(0, 0, W * 0.7, 0, 6.2832);
+      ctx.fill();
+      ctx.restore();
+
+    } else if (style === 'drop') {
+      // 带高光的圆点：水滴、气泡、细胞
+      ctx.globalCompositeOperation = 'lighter';
+      const r = p.size * 0.9;
+      const g = ctx.createRadialGradient(p.x - r * 0.3, p.y - r * 0.3, 0, p.x, p.y, r);
+      g.addColorStop(0, 'rgba(255,255,255,' + (a * 0.9).toFixed(3) + ')');
+      g.addColorStop(0.5, rgba(a * 0.7));
+      g.addColorStop(1, rgba(a * 0.25));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, 6.2832);
+      ctx.fill();
+
+    } else if (style === 'spark') {
+      // 十字星芒：星光、闪光
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.strokeStyle = rgba(a * 0.9);
+      ctx.lineWidth = p.size * 0.35;
+      ctx.lineCap = 'round';
+      const L = p.size * 1.9;
+      ctx.beginPath();
+      ctx.moveTo(-L, 0); ctx.lineTo(L, 0);
+      ctx.moveTo(0, -L); ctx.lineTo(0, L);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,' + (a * 0.9).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * 0.45, 0, 6.2832);
+      ctx.fill();
+      ctx.restore();
+
+    } else if (style === 'arc') {
+      // 短促折线：闪电、电弧
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(a * 0.95);
+      ctx.lineWidth = Math.max(1, p.size * 0.3);
+      ctx.lineCap = 'round';
+      const ca = Math.cos(p.rot), sa = Math.sin(p.rot);
+      const L = p.size * 3.2;
+      const steps = 4;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const f = i / steps;
+        // 折线在运动方向上延伸，横向随机抖动
+        const off = (Math.random() - 0.5) * p.size * 0.7;
+        const px = p.x - ca * L * f - sa * off;
+        const py = p.y - sa * L * f + ca * off;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+    } else if (style === 'block') {
+      // 方块：像素、代码
+      ctx.globalCompositeOperation = 'lighter';
+      const s = p.size * 0.9;
+      ctx.fillStyle = rgba(a * 0.9);
+      ctx.fillRect(p.x - s, p.y - s, s * 2, s * 2);
+      ctx.fillStyle = 'rgba(255,255,255,' + (a * 0.35).toFixed(3) + ')';
+      ctx.fillRect(p.x - s, p.y - s, s, s);
+
+    } else if (style === 'flake') {
+      // 六角雪花：雪花、冰晶
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.strokeStyle = rgba(a * 0.9);
+      ctx.lineWidth = Math.max(0.8, p.size * 0.22);
+      ctx.lineCap = 'round';
+      const L = p.size * 1.5;
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * 6.2832;
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(ca * L, sa * L);
+        // 分叉
+        ctx.moveTo(ca * L * 0.62, sa * L * 0.62);
+        ctx.lineTo(ca * L * 0.62 - sa * L * 0.22, sa * L * 0.62 + ca * L * 0.22);
+        ctx.moveTo(ca * L * 0.62, sa * L * 0.62);
+        ctx.lineTo(ca * L * 0.62 + sa * L * 0.22, sa * L * 0.62 - ca * L * 0.22);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+    } else {
+      // ink：柔和晕染的暗色团
+      ctx.globalCompositeOperation = 'source-over';
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2);
+      g.addColorStop(0, rgba(a * 0.45));
+      g.addColorStop(0.6, rgba(a * 0.2));
+      g.addColorStop(1, rgba(0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 2, 0, 6.2832);
+      ctx.fill();
+    }
+  }
+
   _nextCursorParticle() {
     const pool = this._curPool;
     for (let i = 0; i < 64; i++) {
@@ -680,7 +1051,8 @@ export class CursorEffectElement extends HTMLElement {
     return p;
   }
 
-  _updateCursorDeco(dt) {
+  /** 推进覆盖层粒子（光标装饰 + 滚轮粒子共用一次遍历） */
+  _updateOverlayParticles(dt) {
     const pool = this._curPool;
     for (let i = 0; i < CURSOR_MAXP; i++) {
       const p = pool[i];
@@ -690,8 +1062,21 @@ export class CursorEffectElement extends HTMLElement {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.rotV * dt;
-      if (p.kind === 1) p.vy -= 24 * dt;                 // 火星继续上飘
-      if (p.kind === 3) { p.vx *= 0.985; p.vy *= 0.99; } // 墨点减速
+
+      if (p.kind === 1) p.vy -= 24 * dt;                  // 火星继续上飘
+      if (p.kind === 3) { p.vx *= 0.985; p.vy *= 0.99; }  // 墨点减速
+      if (p.kind === WHEEL_KIND_UP || p.kind === WHEEL_KIND_DOWN) {
+        // 滚轮粒子：按各自的参数推进，让 25 套主题运动方式不同
+        if (p.wDrag) {
+          const d = Math.exp(-p.wDrag * dt);
+          p.vx *= d; p.vy *= d;
+        }
+        if (p.wGrav) p.vy += p.wGrav * dt;
+        if (p.wTurb) p.vx += (Math.random() - 0.5) * p.wTurb * dt * 8;
+        if (p.wGrow) p.size += p.wGrow * dt;
+        // 默认给一点纵向延续，避免粒子刚出就停住
+        if (!p.wGrav) p.vy += (p.kind === WHEEL_KIND_UP ? -120 : 120) * dt;
+      }
     }
   }
 

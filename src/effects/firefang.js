@@ -1701,6 +1701,31 @@ export class CursorFirefang extends CursorEffectElement {
     };
   }
 
+  /**
+   * 滚轮动效：向上滚喷火苗，向下滚落余烬。
+   *
+   * 两向的机制不同，不只是换色：
+   *   向上 —— 初速大、上飘（负重力）、横向收拢，火苗直冲；
+   *   向下 —— 初速小、正重力下沉、横向散开，像火星与灰烬落下来。
+   */
+  wheelTheme() {
+    return {
+      style: 'puff',
+      color:  [255, 150, 50],    // 火苗主色
+      color2: [255, 214, 120],   // 亮黄辅色
+      sizeMin: 3, sizeMax: 8,
+      lifeMin: 0.3, lifeMax: 0.7,
+      upSpeed: 300,
+      downSpeed: 150,
+      spread: 90,
+      gravity: -160,             // 负值 → 整体上飘，火苗持续上升
+      drag: 1.1,                 // 一点阻尼，避免越飘越快
+      turbulence: 26,            // 横向扰动，火苗摆动
+      grow: 6,                   // 逐渐散开
+      jitter: 9
+    };
+  }
+
   // 原型用 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

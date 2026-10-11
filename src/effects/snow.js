@@ -343,6 +343,28 @@ function drawCore(ctx, s, x, y, charge, isLeft) {
 
 export class CursorSnow extends CursorEffectElement {
   /**
+   * 滚轮动效：向上滚雪片上飘，向下滚雪片坠落。
+   * 六角雪花形态 + 自转 + 横向摇摆，与主题一致。
+   */
+  wheelTheme() {
+    return {
+      style: 'flake',
+      color:  [214, 240, 255],
+      color2: [255, 255, 255],
+      sizeMin: 2.4, sizeMax: 5.5,
+      lifeMin: 0.9, lifeMax: 1.7,
+      upSpeed: 110,
+      downSpeed: 70,
+      spread: 46,
+      gravity: 150,          // 正重力 → 始终有下落趋势，向上滚只是初速更大
+      drag: 0.9,
+      turbulence: 34,        // 横向摇摆，像雪片飘
+      spin: 1.6,
+      jitter: 16
+    };
+  }
+
+  /**
    * 主题光标：冰蓝描边 + 寒气装饰。
    * 箭头保持标准轮廓，只让配色与围绕的粒子呼应主题。
    */

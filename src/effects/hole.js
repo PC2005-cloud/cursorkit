@@ -1593,6 +1593,27 @@ function drawHorizon(s) {
  * 23. 组件
  * ============================================================ */
 export class CursorHole extends CursorEffectElement {
+  /**
+   * 滚轮动效：暗紫粒子先向外抛再被拉回，像被黑洞吸住。
+   */
+  wheelTheme() {
+    return {
+      style: 'ink',
+      color:  [176, 124, 255],
+      color2: [90, 50, 150],
+      sizeMin: 2.5, sizeMax: 6,
+      lifeMin: 0.6, lifeMax: 1.3,
+      upSpeed: 380,
+      downSpeed: 340,
+      spread: 130,
+      gravity: 480,          // 强引力，抛出后回落
+      drag: 1.6,
+      turbulence: 18,
+      grow: 5,
+      jitter: 9
+    };
+  }
+
   /** 主题光标：暗紫描边 + 墨点装饰 */
   cursorTheme() {
     return {

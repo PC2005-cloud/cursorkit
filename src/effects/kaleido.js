@@ -1108,6 +1108,26 @@ function fireTunnelBeam(s, b) {
 }
 
 export class CursorKaleido extends CursorEffectElement {
+  /**
+   * 滚轮动效：万花筒碎片旋转飞散，自转最快，色彩分层。
+   */
+  wheelTheme() {
+    return {
+      style: 'shard',
+      color:  [255, 143, 208],
+      color2: [160, 120, 255],
+      sizeMin: 2.2, sizeMax: 6,
+      lifeMin: 0.45, lifeMax: 0.95,
+      upSpeed: 340,
+      downSpeed: 300,
+      spread: 170,
+      gravity: 200,
+      drag: 1.0,
+      spin: 11,
+      jitter: 11
+    };
+  }
+
   /** 主题光标：品红描边 + 电弧装饰 */
   cursorTheme() {
     return {

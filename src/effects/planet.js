@@ -484,6 +484,26 @@ function drawPulsar(ctx, s) {
 }
 
 export class CursorPlanet extends CursorEffectElement {
+  /**
+   * 滚轮动效：星尘被抛出后受重力拉回，像被星球引力牵引。
+   */
+  wheelTheme() {
+    return {
+      style: 'spray',
+      color:  [168, 200, 255],
+      color2: [255, 255, 255],
+      sizeMin: 1.6, sizeMax: 4,
+      lifeMin: 0.6, lifeMax: 1.3,
+      upSpeed: 300,
+      downSpeed: 260,
+      spread: 140,
+      gravity: 560,          // 引力拉回
+      drag: 0.5,
+      turbulence: 20,
+      jitter: 14
+    };
+  }
+
   /** 主题光标：星蓝描边 + 寒气装饰 */
   cursorTheme() {
     return {
