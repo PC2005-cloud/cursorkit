@@ -93,6 +93,41 @@
     background: var(--bg);
   }
 
+  /* ---------- 滚轮势能（竖条） ---------- */
+  .wm {
+    display: flex; align-items: center; gap: 8px;
+    height: 42px; padding: 0 12px;
+    border-radius: 11px;
+    border: 1px solid var(--line);
+    background: var(--surf);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .wm-track {
+    position: relative;
+    width: 7px; height: 24px;
+    border-radius: 999px;
+    background: var(--hover);
+    overflow: hidden;
+  }
+  .wm-bar {
+    position: absolute; left: 0; right: 0;
+    top: 50%; height: 0;
+    background: linear-gradient(180deg, #6ea8ff, #a06cf0);
+    border-radius: 999px;
+    transition: height .07s linear, top .07s linear;
+  }
+  .wm-mid {
+    position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+    background: var(--line);
+  }
+  .wm-val {
+    min-width: 30px; text-align: right;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px; color: var(--dim);
+  }
+
   /* ---------- 自定义选择框 ---------- */
   .sel { position: relative; }
 
@@ -169,6 +204,15 @@
       <span class="caret"></span>
     </button>
     <div class="sel-panel" id="selPanel" role="listbox"></div>
+  </div>
+
+  <!-- 滚轮势能：竖条从中线向上/向下生长，向上滚向上长、向下滚向下长 -->
+  <div class="wm" id="wm" title="滚轮势能：向上滚向上增长，向下滚向下增长，两者互相抵消">
+    <div class="wm-track">
+      <div class="wm-bar" id="wmBar"></div>
+      <div class="wm-mid"></div>
+    </div>
+    <span class="wm-val" id="wmVal">0</span>
   </div>
 </div>
 
@@ -253,6 +297,30 @@
   }
 
   mount(TAGS[0]);
+
+  /* ---------- 滚轮势能可视化 ---------- */
+  // 读当前实例的势能：向上滚为正（竖条向上长），向下滚为负（向下长），
+  // 上下交替会互相抵消。停止滚动后这个值仍会持续消耗，直到耗尽。
+  const wmBar = document.getElementById('wmBar');
+  const wmVal = document.getElementById('wmVal');
+  const WM_MAX = 2000;
+
+  function paintWheelMeter() {
+    const a = current ? (current._wheelAcc || 0) : 0;
+    const pct = Math.min(Math.abs(a) / WM_MAX, 1) * 50;   // 最多占半条
+    if (a >= 0) {
+      // 正值：从中线向上生长
+      wmBar.style.top = (50 - pct) + '%';
+      wmBar.style.height = pct + '%';
+    } else {
+      // 负值：从中线向下生长
+      wmBar.style.top = '50%';
+      wmBar.style.height = pct + '%';
+    }
+    wmVal.textContent = Math.round(a);
+    requestAnimationFrame(paintWheelMeter);
+  }
+  requestAnimationFrame(paintWheelMeter);
 </script>
 </body>
 </html>
