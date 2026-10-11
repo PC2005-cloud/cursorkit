@@ -461,6 +461,7 @@
     <p class="lede">
       25 套鼠标光标动效，封装为零依赖 <b>Web Component</b>。原生 Canvas 绘制，
       一行 <code>import</code> 即可使用，Vue / React / Next.js 与纯 HTML 通吃。
+      每套自带<b>主题光标</b>：原生光标被换成对应主题的箭头与围绕装饰。
       <b>现在就动一下鼠标</b> —— 页面上的光效就是它本身。
     </p>
 
@@ -471,6 +472,7 @@
         <span class="now" id="nowName">雪花</span>
         <span class="tag" id="nowTag" style="font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--fg-faint)">&lt;cursor-snow&gt;</span>
         <span class="spacer"></span>
+        <button class="btn-ghost" id="btnCursor" aria-pressed="true">主题光标</button>
         <button class="btn-ghost" id="btnPause" aria-pressed="false">暂停</button>
         <button class="btn-ghost" id="btnRandom">随机</button>
       </div>
@@ -478,7 +480,9 @@
     </div>
 
     <p class="hint">
-      鼠标移动触发拖尾，<b>左键 / 右键长按可蓄力</b>，松手释放。右键菜单已屏蔽，按住 <kbd>Shift</kbd> 再点右键可唤出原生菜单。
+      每套动效自带<b>主题光标</b> —— 原生光标被隐藏，换成该主题的箭头与围绕装饰
+      （雪花冒寒气、火牙飘火星、闪电打电弧）。移动触发拖尾，<b>左键 / 右键长按可蓄力</b>，松手释放。
+      右键菜单已屏蔽，按住 <kbd>Shift</kbd> 再点右键可唤出原生菜单。
     </p>
   </div>
 </div>
@@ -496,6 +500,11 @@
     </div>
 
     <div class="grid reveal">
+      <div class="card">
+        <div class="ico">➤</div>
+        <h3>主题光标 · 默认开启</h3>
+        <p>原生光标被隐藏，换成各主题的箭头与围绕装饰：雪花冒寒气、火牙飘火星、闪电打电弧。箭头保持标准轮廓不变形，只换配色 —— 不会让人找不到鼠标位置。</p>
+      </div>
       <div class="card">
         <div class="ico">◎</div>
         <h3>零依赖 · 零构建</h3>
@@ -538,6 +547,7 @@
       <h2>三行代码接入</h2>
       <p class="sec-desc">
         引入动效模块（会自行注册自定义元素），然后在页面任意位置放一个标签。
+        <b>主题光标默认开启</b>，组件会自己注入隐藏原生光标的样式，宿主页面无需任何配置。
         下面右侧的示例会随你选择的动效实时变化。
       </p>
     </div>
@@ -551,12 +561,31 @@
 <span class="k">&lt;/script&gt;</span>
 
 <span class="c">&lt;!-- 放在 body 里即可，无需包裹容器 --&gt;</span>
+<span class="c">&lt;!-- 主题光标默认开启 --&gt;</span>
 <span class="k">&lt;cursor-snow&gt;&lt;/cursor-snow&gt;</span></pre>
       </div>
 
       <div class="pane">
         <div class="pane-head"><span class="d"></span> <span id="paneTitle">当前选中</span></div>
 <pre id="paneCode"></pre>
+      </div>
+    </div>
+
+    <div class="install reveal" style="margin-top:16px">
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> 动态开关（JS）</div>
+<pre><span class="k">const</span> fx = document.querySelector(<span class="s">'cursor-snow'</span>);
+
+fx.cursorEnabled = <span class="k">false</span>;   <span class="c">// 关：自绘光标消失，原生光标恢复</span>
+fx.cursorEnabled = <span class="k">true</span>;    <span class="c">// 开</span></pre>
+      </div>
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> 动态开关（属性）</div>
+<pre><span class="c">&lt;!-- 属性变化实时生效，无需重新挂载 --&gt;</span>
+<span class="k">&lt;cursor-snow</span> no-cursor<span class="k">&gt;&lt;/cursor-snow&gt;</span>
+
+<span class="c">&lt;!-- Vue --&gt;</span>
+<span class="k">&lt;cursor-snow</span> :no-cursor=<span class="s">"!cursorOn"</span><span class="k"> /&gt;</span></pre>
       </div>
     </div>
 
@@ -630,10 +659,12 @@
   const paneTitle= document.getElementById('paneTitle');
   const paneCode = document.getElementById('paneCode');
   const btnPause = document.getElementById('btnPause');
+  const btnCursor= document.getElementById('btnCursor');
 
   let current = null;      // 当前挂载的动效元素
   let currentTag = TAGS[0];
   let paused = false;
+  let cursorOn = true;     // 主题光标开关状态（跨动效切换保持）
 
   /* ---------- 生成切换按钮 ---------- */
   TAGS.forEach((tag) => {
@@ -654,6 +685,8 @@
 
     if (!paused) {
       const el = document.createElement(tag);
+      // 把当前的开关状态带到新实例上（切换动效不该重置开关）
+      el.cursorEnabled = cursorOn;
       document.body.appendChild(el);
       current = el;
     }
@@ -681,6 +714,22 @@
     const b = e.target.closest('.chip');
     if (b) apply(b.dataset.tag);
   });
+
+  /* ---------- 主题光标开关 ---------- */
+  // 直接改实例的 cursorEnabled，实时生效，不需要重建组件。
+  // 关闭时组件会移除它注入的全局样式，原生光标立刻回来。
+  function syncCursorBtn() {
+    btnCursor.setAttribute('aria-pressed', cursorOn ? 'true' : 'false');
+    btnCursor.textContent = cursorOn ? '主题光标' : '原生光标';
+  }
+
+  btnCursor.addEventListener('click', () => {
+    cursorOn = !cursorOn;
+    if (current) current.cursorEnabled = cursorOn;
+    syncCursorBtn();
+  });
+
+  syncCursorBtn();
 
   /* ---------- 暂停 / 随机 ---------- */
   btnPause.addEventListener('click', () => {
