@@ -44,7 +44,91 @@ const BASE_CSS = `
   }
 `;
 
+/* ============================================================
+   主题光标：绘制资源与全局「隐藏原生光标」样式
+   ============================================================ */
+
+/**
+ * 标准鼠标箭头轮廓，热点在 (0, 0) 即左上尖端。
+ * 保持箭头形态是刻意的 —— 换成雪花、火焰等异形会让用户找不到鼠标位置。
+ */
+const CURSOR_ARROW = [
+  [0, 0], [0, 16.5], [4.2, 12.6], [6.9, 18.9], [9.6, 17.7], [6.9, 11.6], [12.2, 11.6]
+];
+const CURSOR_SCALE = 1.15;
+
+/** 装饰粒子池容量（每个实例一份，与动效自己的粒子池无关） */
+const CURSOR_MAXP = 700;
+
+/**
+ * 隐藏原生光标的全局样式。
+ *
+ * 必须用通配符覆盖所有元素：只写在 html/body 上靠继承不够 ——
+ * 表单控件（input / select / textarea）在浏览器默认样式里自带 cursor: auto，
+ * 不继承父级，鼠标移上去会同时露出原生图标。
+ *
+ * 这条样式作用于宿主页面（组件在 Shadow DOM 内管不到），所以由组件注入。
+ * 多个实例共用一份，用引用计数决定何时移除。
+ */
+const HIDE_CURSOR_STYLE_ID = 'cursorkit-hide-cursor';
+let hideCursorRefs = 0;
+
+function acquireHideCursorStyle() {
+  hideCursorRefs++;
+  if (hideCursorRefs > 1) return;
+  if (document.getElementById(HIDE_CURSOR_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = HIDE_CURSOR_STYLE_ID;
+  style.textContent =
+    'html, body, body *,' +
+    'html::before, html::after, body::before, body::after,' +
+    'body *::before, body *::after { cursor: none !important; }';
+  (document.head || document.documentElement).appendChild(style);
+}
+
+function releaseHideCursorStyle() {
+  hideCursorRefs = Math.max(0, hideCursorRefs - 1);
+  if (hideCursorRefs > 0) return;
+  const style = document.getElementById(HIDE_CURSOR_STYLE_ID);
+  if (style && style.parentNode) style.parentNode.removeChild(style);
+}
+
 export class CursorEffectElement extends HTMLElement {
+  /**
+   * 监听 no-cursor 属性，使 <cursor-snow no-cursor> 这类写法实时生效，
+   * 不需要重新挂载组件。
+   */
+  static get observedAttributes() {
+    return ['no-cursor'];
+  }
+
+  /**
+   * 声明要监听的事件族。
+   *   'mouse'   —— mousemove / mousedown / mouseup（原型中多数如此）
+   *   'pointer' —— pointermove / pointerdown / pointerup（默认）
+   */
+  // inputFamily = 'mouse';
+
+  /**
+   * 主题光标外观。子类覆写以给出自己的配色。
+   * 返回 null 表示不使用主题光标。
+   *
+   * @returns {null | {
+   *   edge?: string,          // 箭头描边色
+   *   fill?: string,          // 箭头内部填充
+   *   glow?: string,          // 外发光色
+   *   deco?: null | {         // 围绕光标的装饰（寒气 / 火星 / 电弧 …）
+   *     color: [number, number, number],   // RGB
+   *     style: 'cold' | 'spark' | 'arc' | 'ink',
+   *     rate?: number,        // 基础生成速率（个/秒）
+   *     speedGain?: number    // 移动越快追加的速率
+   *   }
+   * }}
+   */
+  cursorTheme() {
+    return null;
+  }
+
   constructor() {
     super();
 
@@ -57,6 +141,23 @@ export class CursorEffectElement extends HTMLElement {
 
     /** 子类在 setup() 中的返回值，原样传给 update / render */
     this.state = undefined;
+
+    /* ---------- 主题光标 ---------- */
+    // 默认开启；置 false 或加 no-cursor 属性可动态关闭。
+    // 这里直接读一次属性：构造期 attributeChangedCallback 可能尚未触发。
+    this._cursorEnabled = !(typeof this.hasAttribute === 'function' && this.hasAttribute('no-cursor'));
+    this._cursorDown = false;
+    /**
+     * 是否已收到真实的鼠标位置。
+     * 必须与 input.inside 分开：setup() 会把光标初值对齐到视口中心（为了让首帧
+     * 位移计算正确），那是占位坐标、不是鼠标真实位置 —— 若直接拿它画箭头，
+     * 页面刚加载、鼠标还没动时，箭头就会凭空出现在屏幕正中。
+     */
+    this._cursorVisible = false;
+    // 装饰粒子池（每个实例独立，与动效自己的粒子池互不影响）
+    this._curPool = null;
+    this._curAcc = 0;
+    this._curSpeed = 0;
 
     /**
      * 光标位置与移动速度（CSS 像素），供动效读取。
@@ -102,6 +203,41 @@ export class CursorEffectElement extends HTMLElement {
     this._prevFrameY = 0;
   }
 
+  /* ---------- 主题光标开关（运行时动态生效） ---------- */
+
+  /** 主题光标是否启用。赋值即可实时开关，无需重新挂载。 */
+  get cursorEnabled() {
+    return this._cursorEnabled;
+  }
+
+  set cursorEnabled(on) {
+    const next = !!on;
+    if (next === this._cursorEnabled) return;
+    this._cursorEnabled = next;
+
+    if (next) {
+      if (this._connected) acquireHideCursorStyle();
+      // 重新开启时清掉可能残留的装饰，避免跨开关状态串色
+      this._resetCursorDeco();
+    } else {
+      if (this._connected) releaseHideCursorStyle();
+      this._resetCursorDeco();
+    }
+  }
+
+  /** 属性 <cursor-xxx no-cursor> 与 cursorEnabled 联动 */
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === 'no-cursor' && oldValue !== newValue) {
+      this.cursorEnabled = (newValue === null);
+    }
+  }
+
+  _resetCursorDeco() {
+    this._curAcc = 0;
+    if (!this._curPool) return;
+    for (let i = 0; i < this._curPool.length; i++) this._curPool[i].on = false;
+  }
+
   connectedCallback() {
     // 防重复挂载：同一实例被移动位置时会再次触发 connectedCallback
     if (this._connected) return;
@@ -140,6 +276,14 @@ export class CursorEffectElement extends HTMLElement {
     this._prevFrameY = this.input.y;
     this.input.frameLx = this.input.x;
     this.input.frameLy = this.input.y;
+
+    // 主题光标：装饰粒子池按实例创建；启用时注入「隐藏原生光标」的全局样式
+    this._curPool = new Array(CURSOR_MAXP);
+    for (let i = 0; i < CURSOR_MAXP; i++) {
+      this._curPool[i] = { on: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 1, rot: 0, rotV: 0, kind: 0 };
+    }
+    this._curCursor = 0;
+    if (this._cursorEnabled) acquireHideCursorStyle();
 
     // 监听 window：光标可以移动到页面任何位置，动效需要全程跟随。
     // 事件族由 inputFamily 决定（原型中多数用 mouse*，少数用 pointer*）。
@@ -184,6 +328,10 @@ export class CursorEffectElement extends HTMLElement {
     document.removeEventListener(fam + 'enter', this._onPointerEnter);
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     window.removeEventListener('contextmenu', this._onContextMenu);
+
+    // 主题光标：卸载时释放全局样式引用（引用归零才真正移除）
+    if (this._cursorEnabled) releaseHideCursorStyle();
+    this._resetCursorDeco();
 
     if (typeof this.dispose === 'function') this.dispose();
 
@@ -237,6 +385,9 @@ export class CursorEffectElement extends HTMLElement {
   _onPointerMove(e) {
     const inp = this.input;
 
+    // 收到真实鼠标位置，允许绘制主题光标
+    this._cursorVisible = true;
+
     // 光标进入页面时，先把上一帧位置对齐，避免从 (0,0) 拉出一条长拖尾
     if (!inp.inside) {
       inp.x = inp.lx = e.clientX;
@@ -255,10 +406,12 @@ export class CursorEffectElement extends HTMLElement {
   }
 
   _onPointerDown(e) {
+    this._cursorDown = true;
     if (typeof this.onPointerDown === 'function') this.onPointerDown(e);
   }
 
   _onPointerUp(e) {
+    this._cursorDown = false;
     if (typeof this.onPointerUp === 'function') this.onPointerUp(e);
   }
 
@@ -279,6 +432,7 @@ export class CursorEffectElement extends HTMLElement {
   _onPointerLeave() {
     // 光标移出窗口：标记离开并通知动效（原型在此取消蓄力）
     this.input.inside = false;
+    this._cursorVisible = false;
     if (typeof this.onPointerLeave === 'function') this.onPointerLeave();
   }
 
@@ -357,9 +511,245 @@ export class CursorEffectElement extends HTMLElement {
     if (typeof this.update === 'function') this.update(dt, this.state);
     if (typeof this.render === 'function') this.render(this.state);
 
+    // 主题光标画在最后 —— 必须盖在动效之上，否则会被拖尾、粒子埋掉
+    this._renderCursor(dt);
+
     // 帧末记录事件级锚点：供下一帧计算「最后一段位移」的速度
     inp.lx = inp.x;
     inp.ly = inp.y;
+  }
+
+  /* ============================================================
+     主题光标：自绘箭头 + 围绕装饰
+     ============================================================ */
+
+  /** 每帧绘制光标。关闭时不做任何事，动效本身照常运行。 */
+  _renderCursor(dt) {
+    if (!this._cursorEnabled || !this._ctx) return;
+
+    const theme = typeof this.cursorTheme === 'function' ? this.cursorTheme() : null;
+    if (!theme) return;
+
+    const ctx = this._ctx;
+    const inp = this.input;
+
+    // 光标速度：按帧位移平滑，仅用于控制装饰密度
+    const dx = inp.x - inp.lx;
+    const dy = inp.y - inp.ly;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const iv = dt > 0 ? dist / dt : 0;
+    const sm = 1 - Math.exp(-25 * dt);
+    this._curSpeed += (iv - this._curSpeed) * sm;
+
+    if (this._cursorVisible && inp.inside) this._emitCursorDeco(dt, theme);
+    this._updateCursorDeco(dt);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    // 装饰先画（在箭头下层）
+    for (let i = 0; i < CURSOR_MAXP; i++) {
+      const p = this._curPool[i];
+      if (p.on) this._drawCursorDeco(ctx, p, theme);
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    if (this._cursorVisible && inp.inside) this._drawCursorArrow(ctx, inp.x, inp.y, theme);
+  }
+
+  /** 绘制箭头本体：保持标准轮廓，只让描边、填充、发光跟随主题 */
+  _drawCursorArrow(ctx, x, y, theme) {
+    const k = CURSOR_SCALE * (this._cursorDown ? 0.92 : 1);
+    const edge = theme.edge || '#ffffff';
+    const fill = theme.fill || 'rgba(10,14,22,.85)';
+    const glow = theme.glow || edge;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(k, k);
+
+    ctx.beginPath();
+    for (let i = 0; i < CURSOR_ARROW.length; i++) {
+      const px = CURSOR_ARROW[i][0];
+      const py = CURSOR_ARROW[i][1];
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+
+    // 外发光 + 填充
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    // 主题色描边
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowBlur = 6;
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 1.6;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // 内侧再描一层浅色，让箭头更实、更有立体感
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,.5)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /** 生成装饰粒子：速率随移动速度提升，静止时仍有少量 */
+  _emitCursorDeco(dt, theme) {
+    const deco = theme.deco;
+    if (!deco || !deco.color) return;
+
+    const rate = (deco.rate || 14) + Math.min(this._curSpeed * (deco.speedGain || 0.22), 90);
+    this._curAcc += rate * dt;
+    let n = this._curAcc | 0;
+    this._curAcc -= n;
+    if (n > 24) n = 24;
+
+    const inp = this.input;
+
+    for (let i = 0; i < n; i++) {
+      const p = this._nextCursorParticle();
+      p.on = true;
+      p.life = 0;
+
+      if (deco.style === 'cold') {
+        // 寒气：在光标下方缓缓飘落
+        p.kind = 0;
+        p.x = inp.x + (Math.random() - 0.5) * 34;
+        p.y = inp.y + (Math.random() - 0.2) * 22;
+        p.vx = (Math.random() - 0.5) * 16;
+        p.vy = 10 + Math.random() * 26;
+        p.size = 1 + Math.random() * 2.4;
+        p.maxLife = 0.5 + Math.random() * 0.7;
+        p.rotV = 0;
+      } else if (deco.style === 'spark') {
+        // 火星：向上飘散
+        p.kind = 1;
+        p.x = inp.x + (Math.random() - 0.5) * 26;
+        p.y = inp.y + (Math.random() - 0.5) * 20;
+        p.vx = (Math.random() - 0.5) * 46;
+        p.vy = -(30 + Math.random() * 70);
+        p.size = 0.9 + Math.random() * 1.8;
+        p.maxLife = 0.35 + Math.random() * 0.5;
+        p.rotV = 0;
+      } else if (deco.style === 'arc') {
+        // 电弧：短促折线，瞬间消失
+        p.kind = 2;
+        p.x = inp.x + (Math.random() - 0.5) * 20;
+        p.y = inp.y + (Math.random() - 0.5) * 20;
+        p.vx = (Math.random() - 0.5) * 10;
+        p.vy = (Math.random() - 0.5) * 10;
+        p.size = 5 + Math.random() * 9;
+        p.maxLife = 0.10 + Math.random() * 0.12;
+        p.rot = Math.random() * Math.PI * 2;
+        p.rotV = 0;
+      } else {
+        // 墨点：缓慢扩散下沉
+        p.kind = 3;
+        p.x = inp.x + (Math.random() - 0.5) * 24;
+        p.y = inp.y + (Math.random() - 0.5) * 20;
+        p.vx = (Math.random() - 0.5) * 14;
+        p.vy = 6 + Math.random() * 20;
+        p.size = 2 + Math.random() * 5;
+        p.maxLife = 0.6 + Math.random() * 0.8;
+        p.rot = Math.random() * Math.PI * 2;
+        p.rotV = (Math.random() - 0.5) * 1.2;
+      }
+    }
+  }
+
+  _nextCursorParticle() {
+    const pool = this._curPool;
+    for (let i = 0; i < 64; i++) {
+      const p = pool[this._curCursor];
+      this._curCursor = (this._curCursor + 1) % CURSOR_MAXP;
+      if (!p.on) return p;
+    }
+    const p = pool[this._curCursor];
+    this._curCursor = (this._curCursor + 1) % CURSOR_MAXP;
+    return p;
+  }
+
+  _updateCursorDeco(dt) {
+    const pool = this._curPool;
+    for (let i = 0; i < CURSOR_MAXP; i++) {
+      const p = pool[i];
+      if (!p.on) continue;
+      p.life += dt;
+      if (p.life >= p.maxLife) { p.on = false; continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.rotV * dt;
+      if (p.kind === 1) p.vy -= 24 * dt;                 // 火星继续上飘
+      if (p.kind === 3) { p.vx *= 0.985; p.vy *= 0.99; } // 墨点减速
+    }
+  }
+
+  _drawCursorDeco(ctx, p, theme) {
+    const c = theme.deco && theme.deco.color;
+    if (!c) return;
+
+    const k = p.life / p.maxLife;
+    const a = 1 - k;
+
+    if (p.kind === 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+      g.addColorStop(0, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a * 0.75).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 3, 0, 6.2832);
+      ctx.fill();
+    } else if (p.kind === 1) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a * 0.7).toFixed(3) + ')';
+      ctx.lineWidth = p.size * 0.9;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 0.02, p.y - p.vy * 0.02 - p.size * 0.4);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,' + (a * 0.9).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 0.7, 0, 6.2832);
+      ctx.fill();
+    } else if (p.kind === 2) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a * 0.95).toFixed(3) + ')';
+      ctx.lineWidth = 1.3;
+      ctx.lineCap = 'round';
+      const ca = Math.cos(p.rot), sa = Math.sin(p.rot);
+      ctx.beginPath();
+      for (let i = 0; i <= 3; i++) {
+        const f = i / 3;
+        const off = (Math.random() - 0.5) * p.size * 0.5;
+        const px = p.x + ca * p.size * f - sa * off;
+        const py = p.y + sa * p.size * f + ca * off;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+      g.addColorStop(0, 'rgba(10,14,22,' + (a * 0.55).toFixed(3) + ')');
+      g.addColorStop(0.7, 'rgba(30,40,58,' + (a * 0.30).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(30,40,58,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, 6.2832);
+      ctx.fill();
+    }
   }
 
   /**

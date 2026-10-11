@@ -1881,6 +1881,16 @@ function renderFrame(ctx, s) {
 }
 
 export class CursorCell extends CursorEffectElement {
+  /** 主题光标：生绿描边 + 墨点装饰 */
+  cursorTheme() {
+    return {
+      edge: '#8ff0b8',
+      fill: 'rgba(10, 30, 20, .88)',
+      glow: '#4ade80',
+      deco: { color: [143, 240, 184], style: 'ink', rate: 12, speedGain: 0.18 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

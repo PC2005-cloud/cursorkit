@@ -1398,6 +1398,16 @@ function drawGridFx(ctx, s) {
 }
 
 export class CursorPixel extends CursorEffectElement {
+  /** 主题光标：霓虹青描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#5ef2e8',
+      fill: 'rgba(10, 32, 34, .88)',
+      glow: '#5ef2e8',
+      deco: { color: [94, 242, 232], style: 'arc', rate: 18, speedGain: 0.28 }
+    };
+  }
+
   // 原型用 mousemove / mousedown / mouseup，不是 pointer 事件族
   inputFamily = 'mouse';
 

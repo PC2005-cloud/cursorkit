@@ -347,6 +347,16 @@ function drawParticle(ctx, p, time) {
 }
 
 export class CursorIce extends CursorEffectElement {
+  /** 主题光标：淡青描边 + 寒气装饰 */
+  cursorTheme() {
+    return {
+      edge: '#bfe9ff',
+      fill: 'rgba(16, 34, 48, .88)',
+      glow: '#bfe9ff',
+      deco: { color: [191, 233, 255], style: 'cold', rate: 13, speedGain: 0.2 }
+    };
+  }
+
   // ==================== 初始化 ====================
   // 只建池与状态，不注册任何监听（监听归基类）
   setup({ ctx, width, height, input }) {

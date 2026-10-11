@@ -187,6 +187,16 @@ function regenInnerArc(ia, r) {
 }
 
 export class CursorLightning extends CursorEffectElement {
+  /** 主题光标：亮黄描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#ffe066',
+      fill: 'rgba(35, 29, 5, .88)',
+      glow: '#ffe066',
+      deco: { color: [255, 232, 120], style: 'arc', rate: 20, speedGain: 0.3 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

@@ -1204,6 +1204,16 @@ function drawWave(ctx, w) {
 }
 
 export class CursorDoodle extends CursorEffectElement {
+  /** 主题光标：彩调描边 + 墨点装饰 */
+  cursorTheme() {
+    return {
+      edge: '#ffd166',
+      fill: 'rgba(34, 26, 12, .88)',
+      glow: '#ff8a5c',
+      deco: { color: [255, 209, 102], style: 'ink', rate: 12, speedGain: 0.18 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

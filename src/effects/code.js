@@ -180,6 +180,16 @@ function randomCodeLine(n) {
 }
 
 export class CursorCode extends CursorEffectElement {
+  /** 主题光标：终端绿描边 + 墨点装饰 */
+  cursorTheme() {
+    return {
+      edge: '#7cf29a',
+      fill: 'rgba(8, 26, 16, .88)',
+      glow: '#4ade80',
+      deco: { color: [124, 242, 154], style: 'ink', rate: 13, speedGain: 0.2 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

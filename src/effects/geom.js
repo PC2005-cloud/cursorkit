@@ -463,6 +463,16 @@ function drawNet(ctx, p) {
 }
 
 export class CursorGeom extends CursorEffectElement {
+  /** 主题光标：钢蓝描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#9db8e8',
+      fill: 'rgba(16, 22, 34, .88)',
+      glow: '#7f9fd0',
+      deco: { color: [157, 184, 232], style: 'arc', rate: 16, speedGain: 0.24 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

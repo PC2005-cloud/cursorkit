@@ -484,6 +484,16 @@ function drawPulsar(ctx, s) {
 }
 
 export class CursorPlanet extends CursorEffectElement {
+  /** 主题光标：星蓝描边 + 寒气装饰 */
+  cursorTheme() {
+    return {
+      edge: '#a8c8ff',
+      fill: 'rgba(14, 20, 40, .88)',
+      glow: '#8fa8ff',
+      deco: { color: [168, 200, 255], style: 'cold', rate: 13, speedGain: 0.2 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

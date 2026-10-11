@@ -1154,6 +1154,16 @@ function drawParticle(ctx, s, p) {
 }
 
 export class CursorFirework extends CursorEffectElement {
+  /** 主题光标：暖橙描边 + 火星装饰 */
+  cursorTheme() {
+    return {
+      edge: '#ffb066',
+      fill: 'rgba(38, 20, 6, .88)',
+      glow: '#ff8a3d',
+      deco: { color: [255, 176, 102], style: 'spark', rate: 17, speedGain: 0.28 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

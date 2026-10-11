@@ -1108,6 +1108,16 @@ function fireTunnelBeam(s, b) {
 }
 
 export class CursorKaleido extends CursorEffectElement {
+  /** 主题光标：品红描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#ff8fd0',
+      fill: 'rgba(34, 12, 28, .88)',
+      glow: '#ff5cb8',
+      deco: { color: [255, 143, 208], style: 'arc', rate: 19, speedGain: 0.3 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

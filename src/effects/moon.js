@@ -1739,6 +1739,16 @@ function renderFrame(ctx, s) {
 }
 
 export class CursorMoon extends CursorEffectElement {
+  /** 主题光标：月白描边 + 寒气装饰 */
+  cursorTheme() {
+    return {
+      edge: '#e6ecff',
+      fill: 'rgba(18, 22, 38, .88)',
+      glow: '#c8d4ff',
+      deco: { color: [230, 236, 255], style: 'cold', rate: 12, speedGain: 0.18 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

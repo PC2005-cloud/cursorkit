@@ -166,6 +166,16 @@ class Sheet {
 }
 
 export class CursorSilk extends CursorEffectElement {
+  /** 主题光标：米白描边 + 墨点装饰 */
+  cursorTheme() {
+    return {
+      edge: '#f2e8d5',
+      fill: 'rgba(30, 26, 20, .88)',
+      glow: '#d8c9a8',
+      deco: { color: [242, 232, 213], style: 'ink', rate: 11, speedGain: 0.16 }
+    };
+  }
+
   // 原型用的是 mouse 事件族，不声明的话基类会去监听 pointer*，动效收不到输入
   inputFamily = 'mouse';
 

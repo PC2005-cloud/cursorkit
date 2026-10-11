@@ -1029,6 +1029,16 @@ function drawWaveLines(ctx, s) {
 }
 
 export class CursorFish extends CursorEffectElement {
+  /** 主题光标：水青描边 + 寒气装饰 */
+  cursorTheme() {
+    return {
+      edge: '#7fe8f0',
+      fill: 'rgba(10, 30, 38, .88)',
+      glow: '#7fe8f0',
+      deco: { color: [127, 232, 240], style: 'cold', rate: 13, speedGain: 0.2 }
+    };
+  }
+
   // 原型用的是 pointermove / pointerdown / pointerup（第 357/363/381 行），
   // 与基类默认的 'pointer' 族一致，因此这里不声明 inputFamily。
   // （若误写成 inputFamily = 'mouse'，本动效将完全收不到输入。）

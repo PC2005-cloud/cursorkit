@@ -163,6 +163,16 @@ function buildWhiteSprite(doc) {
 }
 
 export class CursorRainbow extends CursorEffectElement {
+  /** 主题光标：紫调描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#c9a6ff',
+      fill: 'rgba(24, 14, 40, .88)',
+      glow: '#a06cf0',
+      deco: { color: [201, 166, 255], style: 'arc', rate: 18, speedGain: 0.28 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

@@ -342,6 +342,19 @@ function drawCore(ctx, s, x, y, charge, isLeft) {
 }
 
 export class CursorSnow extends CursorEffectElement {
+  /**
+   * 主题光标：冰蓝描边 + 寒气装饰。
+   * 箭头保持标准轮廓，只让配色与围绕的粒子呼应主题。
+   */
+  cursorTheme() {
+    return {
+      edge: '#8fe3ff',
+      fill: 'rgba(13, 34, 51, .88)',
+      glow: '#8fe3ff',
+      deco: { color: [180, 232, 255], style: 'cold', rate: 14, speedGain: 0.22 }
+    };
+  }
+
   // ==== 初始化 ====
   // 只建池与状态，不注册任何监听（监听归基类）
   setup({ ctx, width, height, input }) {

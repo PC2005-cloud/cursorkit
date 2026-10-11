@@ -234,6 +234,16 @@ function makeShard(x, y, ang, sp) {
 }
 
 export class CursorRefract extends CursorEffectElement {
+  /** 主题光标：棱镜青描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#8ff0ff',
+      fill: 'rgba(12, 30, 40, .88)',
+      glow: '#8ff0ff',
+      deco: { color: [143, 240, 255], style: 'arc', rate: 19, speedGain: 0.3 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

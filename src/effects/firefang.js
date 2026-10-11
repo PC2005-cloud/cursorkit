@@ -1691,6 +1691,16 @@ function updatePost(s, dt) {
 }
 
 export class CursorFirefang extends CursorEffectElement {
+  /** 主题光标：橙红描边 + 火星装饰 */
+  cursorTheme() {
+    return {
+      edge: '#ffa445',
+      fill: 'rgba(42, 18, 6, .88)',
+      glow: '#ff7a2f',
+      deco: { color: [255, 168, 70], style: 'spark', rate: 16, speedGain: 0.26 }
+    };
+  }
+
   // 原型用 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

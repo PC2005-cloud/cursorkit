@@ -1317,6 +1317,16 @@ function drawChargeVisuals(ctx, s) {
 }
 
 export class CursorBall extends CursorEffectElement {
+  /** 主题光标：青蓝描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#7fe3ff',
+      fill: 'rgba(10, 26, 36, .88)',
+      glow: '#7fe3ff',
+      deco: { color: [127, 227, 255], style: 'arc', rate: 18, speedGain: 0.26 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

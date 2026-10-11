@@ -1253,6 +1253,16 @@ function drawDrop(s, d) {
 }
 
 export class CursorInk extends CursorEffectElement {
+  /** 主题光标：灰蓝描边 + 墨点装饰 */
+  cursorTheme() {
+    return {
+      edge: '#9fb4d8',
+      fill: 'rgba(11, 14, 22, .9)',
+      glow: '#6f8ec0',
+      deco: { color: [120, 140, 175], style: 'ink', rate: 12, speedGain: 0.18 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

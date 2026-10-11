@@ -1470,6 +1470,16 @@ function drawFrame(s) {
    组件
    ================================================================== */
 export class CursorMist extends CursorEffectElement {
+  /** 主题光标：灰蓝描边 + 寒气装饰 */
+  cursorTheme() {
+    return {
+      edge: '#b8c8dc',
+      fill: 'rgba(20, 26, 36, .88)',
+      glow: '#9fb4cc',
+      deco: { color: [184, 200, 220], style: 'cold', rate: 12, speedGain: 0.18 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

@@ -208,6 +208,16 @@ const GRAN_OUTER = [];
 })();
 
 export class CursorSun extends CursorEffectElement {
+  /** 主题光标：金色描边 + 火星装饰 */
+  cursorTheme() {
+    return {
+      edge: '#ffd166',
+      fill: 'rgba(40, 26, 6, .88)',
+      glow: '#ffb02e',
+      deco: { color: [255, 209, 102], style: 'spark', rate: 17, speedGain: 0.28 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

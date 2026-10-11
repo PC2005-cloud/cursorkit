@@ -129,6 +129,16 @@ function makeParticle() {
 }
 
 export class CursorOrb extends CursorEffectElement {
+  /** 主题光标：亮青描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#7fd8ff',
+      fill: 'rgba(10, 28, 44, .88)',
+      glow: '#7fd8ff',
+      deco: { color: [127, 216, 255], style: 'arc', rate: 18, speedGain: 0.26 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（不是 pointer 事件族），
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

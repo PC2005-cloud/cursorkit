@@ -1593,6 +1593,16 @@ function drawHorizon(s) {
  * 23. 组件
  * ============================================================ */
 export class CursorHole extends CursorEffectElement {
+  /** 主题光标：暗紫描边 + 墨点装饰 */
+  cursorTheme() {
+    return {
+      edge: '#b07cff',
+      fill: 'rgba(14, 8, 24, .92)',
+      glow: '#7a3fd0',
+      deco: { color: [176, 124, 255], style: 'ink', rate: 14, speedGain: 0.22 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（第 826-828 行），不是 pointer 事件族，
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';

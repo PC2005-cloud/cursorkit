@@ -1440,6 +1440,16 @@ function renderScene(s) {
 }
 
 export class CursorRadar extends CursorEffectElement {
+  /** 主题光标：雷达绿描边 + 电弧装饰 */
+  cursorTheme() {
+    return {
+      edge: '#8ff0a8',
+      fill: 'rgba(10, 30, 16, .88)',
+      glow: '#4ade80',
+      deco: { color: [143, 240, 168], style: 'arc', rate: 18, speedGain: 0.26 }
+    };
+  }
+
   // 原型用的是 mousemove / mousedown / mouseup（第 731-733 行），不是 pointer 事件族，
   // 不声明这一行，基类会去监听 pointermove，动效将完全收不到鼠标输入。
   inputFamily = 'mouse';
