@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CursorKit · 25 套零依赖鼠标光标动效</title>
+<link rel="icon" type="image/svg+xml" href="./logo.svg">
+<link rel="apple-touch-icon" href="./logo.svg">
+<meta name="theme-color" content="#07080d">
+<meta name="description" content="25 套开箱即用的鼠标光标动效，封装为零依赖 Web Component。原生 Canvas 绘制，支持 Vue / React / Next.js 与纯 HTML，无框架限制。">
+
+<!-- 主题初始化：必须放在样式表之前执行，否则刷新时会先闪一下默认主题。
+     优先级：localStorage 记住的选择 > 系统偏好 > 深色 -->
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('cursorkit-theme');
+      var theme = saved || (window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
+<style>
+  /* ============================================================
+     设计基调：克制、留白充足。
+     动效是主角，界面元素退到后面——半透明玻璃质感、低饱和文字。
+
+     层级安排（关键）：
+       动效层默认 z-index 极高（2147483000），这里用基类支持的
+       --cursor-effect-z 把它放到「所有页面内容之上」——包括顶部导航条。
+       光效掠过标题、卡片、导航条时不再被遮挡，视觉上更完整。
+
+       控件与导航的可点击性不靠 z-index —— 动效层是 pointer-events:none，
+       鼠标事件直接穿透过去，所有交互照常。
+
+     主题：两套变量，靠 <html data-theme="dark|light"> 切换。
+       组件样式全部引用语义变量，不写死颜色，否则换主题会漏改。
+     ============================================================ */
+
+  /* ---------- 深色主题（默认） ---------- */
+  :root,
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:        #07080d;
+    --fg:        #eef2fa;
+    --fg-dim:    #9aa6bf;
+    --fg-faint:  #6b7794;
+    --accent:    #6ea8ff;
+    --on-accent: #0a1020;                 /* 强调色底上的文字 */
+
+    --line:      rgba(255,255,255,.09);
+    --line-soft: rgba(255,255,255,.06);
+    --glass:     rgba(13,15,23,.72);      /* 玻璃面板底 */
+    --pane:      rgba(9,11,17,.80);       /* 代码块底 */
+    --s1:        rgba(255,255,255,.035);  /* 静默底 */
+    --s2:        rgba(255,255,255,.07);   /* 悬停底 */
+    --s3:        rgba(255,255,255,.13);   /* 按下底 */
+    --code:      #c3d0e8;
+    --code-c:    #5f6d88;
+    --code-k:    #8fc0ff;
+    --code-s:    #9fe6b8;
+
+    --glow1:     rgba(110,168,255,.10);
+    --glow2:     rgba(160,120,255,.06);
+    --head-bg1:  rgba(7,8,13,.82);
+    --head-bg2:  rgba(7,8,13,.35);
+    --shadow:    0 10px 34px rgba(0,0,0,.5);
+    --sb-thumb:  rgba(255,255,255,.16);
+    --sb-thumb-hover: rgba(255,255,255,.30);
+  }
+
+  /* ---------- 浅色主题 ---------- */
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg:        #f7f8fb;
+    --fg:        #141821;
+    --fg-dim:    #4d5769;
+    --fg-faint:  #7d8798;
+    --accent:    #2563d6;
+    --on-accent: #ffffff;                 /* 强调色底上的文字 */
+
+    --line:      rgba(18,24,38,.12);
+    --line-soft: rgba(18,24,38,.07);
+    --glass:     rgba(255,255,255,.80);
+    --pane:      rgba(255,255,255,.92);
+    --s1:        rgba(18,24,38,.035);
+    --s2:        rgba(18,24,38,.07);
+    --s3:        rgba(18,24,38,.12);
+    --code:      #2c3444;
+    --code-c:    #8b93a3;
+    --code-k:    #2563d6;
+    --code-s:    #16794c;
+
+    --glow1:     rgba(37,99,214,.10);
+    --glow2:     rgba(130,90,220,.07);
+    --head-bg1:  rgba(247,248,251,.85);
+    --head-bg2:  rgba(247,248,251,.40);
+    --shadow:    0 10px 30px rgba(20,30,60,.10);
+    --sb-thumb:  rgba(18,24,38,.20);
+    --sb-thumb-hover: rgba(18,24,38,.36);
+  }
+
+  :root {
+    --ui:        20;            /* 正文内容层 */
+    --nav:       30;            /* 顶部导航条：仍在内容之上，但低于动效 */
+    --fx:        2147483500;    /* 动效层：最上层，浮在一切之上 */
+    --radius:    14px;
+  }
+
+  /* 传给动效组件：覆盖它默认的 z-index */
+  body { --cursor-effect-z: var(--fx); }
+
+  * { box-sizing: border-box; }
+
+  /* 全局禁止选中文字：拖选产生的蓝色选区会打断光标动效的观感。
+     代码块同样不给选 —— 复制走右上角的按钮，比拖选方便。 */
+  html, body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 主题切换时的过渡（只过渡颜色，不动布局） */
+  body, .card, .console, .pane, .chip, .btn-ghost, header, footer {
+    transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+  }
+
+  /* 顶部一层极淡的径向光，避免大片死色 */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(1100px 600px at 50% -10%, var(--glow1), transparent 62%),
+      radial-gradient(800px 500px at 85% 15%, var(--glow2), transparent 60%);
+  }
+
+  /* 所有内容层必须在动效之上 */
+  .layer { position: relative; z-index: var(--ui); }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code, kbd, pre { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------------- 自定义滚动条（覆盖原生样式） ---------------- */
+  /* Firefox 用标准属性；Chrome / Safari / Edge 用 ::-webkit-scrollbar */
+  html { scrollbar-width: thin; scrollbar-color: var(--sb-thumb) transparent; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb);
+    border-radius: 999px;
+    /* 用透明边框把滑块"收窄"，视觉上更细 */
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); background-clip: content-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+
+  /* 代码块横向滚动条也统一风格，并压低高度 */
+  pre::-webkit-scrollbar { height: 8px; }
+  pre::-webkit-scrollbar-thumb { border-width: 2px; }
+
+  /* ---------------- 顶部导航 ---------------- */
+  header {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: var(--nav);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    background: linear-gradient(to bottom, var(--head-bg1), var(--head-bg2));
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 58px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 650; font-size: 15px; letter-spacing: .2px;
+  }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 14px 3px var(--glow1);
+  }
+  .nav-links { display: flex; gap: 22px; font-size: 13.5px; }
+  .nav-links a { color: var(--fg-dim); }
+  .nav-links a:hover { color: var(--fg); text-decoration: none; }
+
+  /* 主题切换按钮 */
+  .theme-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--s1);
+    color: var(--fg-dim); font-size: 12.5px; font-family: inherit;
+    transition: background .15s ease, color .15s ease;
+  }
+  .theme-btn:hover { background: var(--s2); color: var(--fg); }
+  .theme-btn .ic { font-size: 14px; line-height: 1; }
+
+  /* ---------------- Hero：介绍与展示合一 ---------------- */
+  .hero {
+    min-height: 100svh;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 110px 0 60px;
+  }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    align-self: flex-start;
+    padding: 6px 13px; border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--s1);
+    font-size: 12.5px; color: var(--fg-dim);
+    letter-spacing: .3px;
+  }
+  .eyebrow .pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: #22c55e;
+    box-shadow: 0 0 10px 2px rgba(34,197,94,.55);
+    animation: blink 2.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  h1 {
+    margin: 26px 0 0;
+    font-size: clamp(34px, 5.6vw, 62px);
+    line-height: 1.08;
+    font-weight: 700;
+    letter-spacing: -1.2px;
+  }
+  h1 .grad {
+    background: linear-gradient(100deg, var(--fg) 8%, var(--accent) 48%, #a06cf0 88%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .lede {
+    margin: 22px 0 0;
+    max-width: 640px;
+    font-size: clamp(15px, 1.7vw, 17.5px);
+    line-height: 1.75;
+    color: var(--fg-dim);
+  }
+  .lede b { color: var(--fg); font-weight: 600; }
+
+  /* 切换控件：与介绍并列，是页面主角之一 */
+  .console {
+    margin-top: 40px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    overflow: hidden;
+  }
+  .console-head {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12.5px; color: var(--fg-faint);
+  }
+  .console-head .now {
+    color: var(--fg); font-weight: 600; font-size: 13.5px;
+  }
+  .console-head .spacer { flex: 1; }
+
+  .btn-ghost {
+    padding: 6px 13px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--s1);
+    color: var(--fg-dim); font-size: 12.5px; font-family: inherit;
+    transition: background .15s ease, color .15s ease;
+  }
+  .btn-ghost:hover { background: var(--s2); color: var(--fg); }
+  .btn-ghost[aria-pressed="true"] { background: var(--s3); color: var(--accent); border-color: var(--accent); }
+
+  .chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 7px;
+    padding: 14px 16px 16px;
+    max-height: 232px; overflow-y: auto;
+  }
+  .chips::-webkit-scrollbar { width: 9px; }
+  .chips::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 9px; }
+  .chips::-webkit-scrollbar-track { background: transparent; }
+
+  .chip {
+    padding: 9px 6px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--s1);
+    color: var(--fg-dim); font-size: 13px; font-family: inherit;
+    transition: all .16s ease;
+    white-space: nowrap;
+  }
+  .chip:hover { background: var(--s2); color: var(--fg); transform: translateY(-1px); }
+  .chip.on {
+    /* 选中态用实心强调色 + 反色文字：两套主题下对比度都足够，
+       不要用半透明渐变 + 硬编码 #fff（浅色主题下会糊成一片） */
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent); font-weight: 600;
+    box-shadow: 0 6px 18px -8px var(--accent);
+  }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .hint {
+    margin-top: 14px; font-size: 12.5px; color: var(--fg-faint); line-height: 1.7;
+  }
+  .hint kbd {
+    padding: 1.5px 6px; border-radius: 5px; font-size: 11.5px;
+    border: 1px solid var(--line); background: var(--s2); color: var(--fg-dim);
+  }
+
+  /* ---------------- 通用区块 ---------------- */
+  section { padding: 92px 0; }
+  section + section { border-top: 1px solid var(--line-soft); }
+
+  .sec-label {
+    font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+  }
+  h2 {
+    margin: 14px 0 0;
+    font-size: clamp(23px, 3vw, 31px);
+    font-weight: 650; letter-spacing: -.5px; line-height: 1.25;
+  }
+  .sec-desc {
+    margin: 16px 0 0; max-width: 660px;
+    color: var(--fg-dim); font-size: 15px; line-height: 1.8;
+  }
+
+  /* 特性网格 */
+  .grid {
+    margin-top: 44px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    padding: 22px 22px 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: border-color .2s ease, transform .2s ease, background-color .25s ease;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card .ico {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: linear-gradient(150deg, var(--glow1), var(--glow2));
+    border: 1px solid var(--line);
+    font-size: 16px; margin-bottom: 15px;
+  }
+  .card h3 { margin: 0 0 9px; font-size: 15.5px; font-weight: 620; }
+  .card p { margin: 0; font-size: 13.5px; line-height: 1.75; color: var(--fg-dim); }
+  .card p code {
+    font-size: 12.5px; padding: 1.5px 6px; border-radius: 5px;
+    background: var(--s2); color: var(--fg);
+  }
+
+  /* 安装 / 用法 */
+  .install {
+    margin-top: 40px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 820px) { .install { grid-template-columns: 1fr; } }
+
+  .pane {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--pane); overflow: hidden;
+  }
+  .pane-head {
+    padding: 10px 15px; font-size: 12px; color: var(--fg-faint);
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pane-head .d { width: 8px; height: 8px; border-radius: 50%; background: var(--s3); }
+  .pane-head .spacer { flex: 1; }
+
+  /* 复制按钮：替代文本选中 */
+  .copy-btn {
+    padding: 4px 10px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--s1);
+    color: var(--fg-faint); font-size: 11.5px; font-family: inherit;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .copy-btn:hover { background: var(--s2); color: var(--fg); }
+  .copy-btn.done { color: #16a34a; border-color: #16a34a; background: transparent; }
+  .copy-btn.fail { color: #dc2626; border-color: #dc2626; background: transparent; }
+  pre {
+    margin: 0; padding: 16px 15px;
+    font-size: 12.8px; line-height: 1.85;
+    color: var(--code); overflow-x: auto;
+  }
+  pre .c { color: var(--code-c); }   /* 注释 */
+  pre .k { color: var(--code-k); }   /* 关键字 / 标签 */
+  pre .s { color: var(--code-s); }   /* 字符串 */
+
+  /* 页脚 */
+  footer {
+    padding: 52px 0 72px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--fg-faint); font-size: 13px;
+  }
+  footer .row { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+
+  /* 滚动淡入 */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .eyebrow .pulse { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     动效层由脚本注入：满屏、透明、pointer-events:none
+     ============================================================ -->
+
+<header>
+  <div class="wrap nav">
+    <div class="brand"><span class="dot"></span> CursorKit</div>
+    <nav class="nav-links">
+      <a href="#why">为什么用它</a>
+      <a href="#start">快速开始</a>
+      <button class="theme-btn" id="themeBtn" type="button" aria-label="切换明暗主题">
+        <span class="ic" id="themeIcon">◐</span><span id="themeText">浅色</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ---------------- Hero：介绍 + 展示，一体 ---------------- -->
+<div class="wrap layer">
+  <div class="hero">
+    <span class="eyebrow"><span class="pulse"></span> 25 套动效 · 零依赖 · 无框架限制</span>
+
+    <h1>给你的页面装上<br><span class="grad">会呼吸的光标</span></h1>
+
+    <p class="lede">
+      25 套鼠标光标动效，封装为零依赖 <b>Web Component</b>。原生 Canvas 绘制，
+      一行 <code>import</code> 即可使用，Vue / React / Next.js 与纯 HTML 通吃。
+      <b>现在就动一下鼠标</b> —— 页面上的光效就是它本身。
+    </p>
+
+    <!-- 切换控件：与介绍同屏，是页面主角之一 -->
+    <div class="console">
+      <div class="console-head">
+        <span>当前效果</span>
+        <span class="now" id="nowName">雪花</span>
+        <span class="tag" id="nowTag" style="font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--fg-faint)">&lt;cursor-snow&gt;</span>
+        <span class="spacer"></span>
+        <button class="btn-ghost" id="btnPause" aria-pressed="false">暂停</button>
+        <button class="btn-ghost" id="btnRandom">随机</button>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <p class="hint">
+      鼠标移动触发拖尾，<b>左键 / 右键长按可蓄力</b>，松手释放。右键菜单已屏蔽，按住 <kbd>Shift</kbd> 再点右键可唤出原生菜单。
+    </p>
+  </div>
+</div>
+
+<!-- ---------------- 为什么用它 ---------------- -->
+<section id="why">
+  <div class="wrap layer">
+    <div class="reveal">
+      <div class="sec-label">Why</div>
+      <h2>一层浮在页面上的光标层</h2>
+      <p class="sec-desc">
+        它铺满视口、浮在内容之上，但 <code>pointer-events: none</code> ——
+        你的按钮、输入框、文字选择全部照常工作。这一点是整个设计的出发点。
+      </p>
+    </div>
+
+    <div class="grid reveal">
+      <div class="card">
+        <div class="ico">◎</div>
+        <h3>零依赖 · 零构建</h3>
+        <p>纯原生 ESM + Custom Elements，不引入任何第三方库，也不需要打包器。直接用 <code>&lt;script type="module"&gt;</code> 即可。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⇄</div>
+        <h3>无框架限制</h3>
+        <p>Vue 模板里写 <code>&lt;cursor-snow&gt;</code>，React 里当自定义标签用，Next.js 里 <code>dynamic(..., { ssr: false })</code>。同一份代码，四种用法。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⛨</div>
+        <h3>不干扰宿主页面</h3>
+        <p>样式封在 Shadow DOM 内，监听器只读（不 <code>preventDefault</code>、不 <code>stopPropagation</code>），卸载时全部注销，不留残留。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⧉</div>
+        <h3>可多实例共存</h3>
+        <p>所有状态都在实例内部，同页放多个动效互不干扰。粒子池按实例预分配，不用频繁 <code>new</code> 对象。</p>
+      </div>
+      <div class="card">
+        <div class="ico">◐</div>
+        <h3>按需引入</h3>
+        <p>每个动效独立文件，带 tree-shaking。只用雪花就只引入雪花，不会把 25 套一起打包进去。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⌁</div>
+        <h3>与原型逐帧一致</h3>
+        <p>移植自 25 个单文件原型，逐个做过差分验证：相同随机种子下逐帧比对绘制调用序列。原型保留在 <code>reference/</code>。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- 快速开始 ---------------- -->
+<section id="start">
+  <div class="wrap layer">
+    <div class="reveal">
+      <div class="sec-label">Get started</div>
+      <h2>三行代码接入</h2>
+      <p class="sec-desc">
+        引入动效模块（会自行注册自定义元素），然后在页面任意位置放一个标签。
+        下面右侧的示例会随你选择的动效实时变化。
+      </p>
+    </div>
+
+    <div class="install reveal">
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> HTML</div>
+<pre><span class="c">&lt;!-- 引入后即注册 &lt;cursor-snow&gt; --&gt;</span>
+<span class="k">&lt;script</span> type=<span class="s">"module"</span><span class="k">&gt;</span>
+  <span class="k">import</span> <span class="s">'./src/effects/snow.js'</span>;
+<span class="k">&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- 放在 body 里即可，无需包裹容器 --&gt;</span>
+<span class="k">&lt;cursor-snow&gt;&lt;/cursor-snow&gt;</span></pre>
+      </div>
+
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> <span id="paneTitle">当前选中</span></div>
+<pre id="paneCode"></pre>
+      </div>
+    </div>
+
+    <div class="install reveal" style="margin-top:16px">
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> Vue 3</div>
+<pre><span class="k">&lt;script</span> setup<span class="k">&gt;</span>
+<span class="k">import</span> <span class="s">'cursorkit/src/effects/snow.js'</span>;
+<span class="k">&lt;/script&gt;</span>
+<span class="k">&lt;template&gt;</span>
+  <span class="k">&lt;cursor-snow /&gt;</span>
+<span class="k">&lt;/template&gt;</span></pre>
+      </div>
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> Next.js</div>
+<pre><span class="c">// 必须禁用 SSR：组件依赖 window</span>
+<span class="k">const</span> Fx = dynamic(
+  () =&gt; <span class="k">import</span>(<span class="s">'cursorkit/src/effects/snow.js'</span>),
+  { ssr: <span class="k">false</span> }
+);
+
+<span class="k">&lt;Fx /&gt;</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap layer row">
+    <div>CursorKit · 25 套零依赖鼠标光标动效</div>
+    <div>原型保留在 <code>reference/</code> · 工具在 <code>tools/</code></div>
+  </div>
+</footer>
+
+<script type="module">
+  import { EFFECTS } from './src/effects/index.js';
+
+  // 中文名 / 文件 / 事件族（事件族用于清单展示，说明它监听 mouse* 还是 pointer*）
+  const META = {
+    'cursor-snow':      ['雪花',   'snow.js',      'pointer'],
+    'cursor-ice':       ['冰晶',   'ice.js',       'pointer'],
+    'cursor-pixel':     ['像素',   'pixel.js',     'mouse'],
+    'cursor-sun':       ['太阳',   'sun.js',       'mouse'],
+    'cursor-silk':      ['丝绸',   'silk.js',      'mouse'],
+    'cursor-refract':   ['光折射', 'refract.js',   'mouse'],
+    'cursor-orb':       ['光球',   'orb.js',       'mouse'],
+    'cursor-geom':      ['几何体', 'geom.js',      'mouse'],
+    'cursor-ball':      ['彩球',   'ball.js',      'mouse'],
+    'cursor-planet':    ['星球',   'planet.js',    'mouse'],
+    'cursor-mist':      ['云雾',   'mist.js',      'mouse'],
+    'cursor-code':      ['代码',   'code.js',      'mouse'],
+    'cursor-rainbow':   ['彩虹',   'rainbow.js',   'mouse'],
+    'cursor-moon':      ['月亮',   'moon.js',      'mouse'],
+    'cursor-bubble':    ['气泡',   'bubble.js',    'mouse'],
+    'cursor-ink':       ['水墨',   'ink.js',       'mouse'],
+    'cursor-doodle':    ['涂鸦',   'doodle.js',    'mouse'],
+    'cursor-firefang':  ['火牙',   'firefang.js',  'mouse'],
+    'cursor-hole':      ['黑洞',   'hole.js',      'mouse'],
+    'cursor-lightning': ['闪电',   'lightning.js', 'mouse'],
+    'cursor-kaleido':   ['万花筒', 'kaleido.js',   'mouse'],
+    'cursor-cell':      ['细胞',   'cell.js',      'mouse'],
+    'cursor-fish':      ['鱼群',   'fish.js',      'pointer'],
+    'cursor-firework':  ['烟火',   'firework.js',  'mouse'],
+    'cursor-radar':     ['雷达',   'radar.js',     'mouse']
+  };
+
+  const TAGS = Object.keys(EFFECTS);
+  const chipsEl  = document.getElementById('chips');
+  const nowName  = document.getElementById('nowName');
+  const nowTag   = document.getElementById('nowTag');
+  const paneTitle= document.getElementById('paneTitle');
+  const paneCode = document.getElementById('paneCode');
+  const btnPause = document.getElementById('btnPause');
+
+  let current = null;      // 当前挂载的动效元素
+  let currentTag = TAGS[0];
+  let paused = false;
+
+  /* ---------- 生成切换按钮 ---------- */
+  TAGS.forEach((tag) => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.type = 'button';
+    b.dataset.tag = tag;
+    b.textContent = META[tag][0];
+    b.title = tag;
+    chipsEl.appendChild(b);
+  });
+
+  /* ---------- 切换逻辑 ---------- */
+  function apply(tag) {
+    // 销毁旧的，重建新的 —— 等于每次切换都重置状态
+    if (current) { current.remove(); current = null; }
+    currentTag = tag;
+
+    if (!paused) {
+      const el = document.createElement(tag);
+      document.body.appendChild(el);
+      current = el;
+    }
+
+    const [cn] = META[tag];
+
+    // 高亮按钮
+    for (const c of chipsEl.children) {
+      c.classList.toggle('on', c.dataset.tag === tag);
+    }
+
+    // 顶部状态
+    nowName.textContent = cn;
+    nowTag.textContent = '<' + tag + '>';
+    paneTitle.textContent = cn + ' · ' + tag;
+    paneCode.innerHTML =
+      '<span class="c">&lt;!-- ' + cn + ' --&gt;</span>\n' +
+      '<span class="k">&lt;script</span> type=<span class="s">"module"</span><span class="k">&gt;</span>\n' +
+      '  <span class="k">import</span> <span class="s">\'./src/effects/' + META[tag][1] + '\'</span>;\n' +
+      '<span class="k">&lt;/script&gt;</span>\n\n' +
+      '<span class="k">&lt;' + tag + '&gt;&lt;/' + tag + '&gt;</span>';
+  }
+
+  chipsEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (b) apply(b.dataset.tag);
+  });
+
+  /* ---------- 暂停 / 随机 ---------- */
+  btnPause.addEventListener('click', () => {
+    paused = !paused;
+    btnPause.setAttribute('aria-pressed', paused ? 'true' : 'false');
+    btnPause.textContent = paused ? '继续' : '暂停';
+    apply(currentTag);
+  });
+
+  document.getElementById('btnRandom').addEventListener('click', () => {
+    let next = currentTag;
+    while (next === currentTag && TAGS.length > 1) {
+      next = TAGS[Math.floor(Math.random() * TAGS.length)];
+    }
+    apply(next);
+  });
+
+  /* ---------- 键盘 ←/→ 切换 ---------- */
+  window.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    // 输入框里不劫持方向键
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const i = TAGS.indexOf(currentTag);
+    const d = e.key === 'ArrowRight' ? 1 : -1;
+    apply(TAGS[(i + d + TAGS.length) % TAGS.length]);
+    e.preventDefault();
+  });
+
+  /* ---------- 代码块复制按钮 ---------- */
+  // 文本被全局禁止选中，所以每个代码块右上角配一个复制按钮。
+  // 按钮自动注入，代码块内容变化（如切换动效）时无需重新绑定。
+  function copyText(text) {
+    // 回退方案：临时 textarea + execCommand，适用于
+    // 非安全上下文、或 clipboard API 存在但调用被拒（无用户手势/权限策略）的情况
+    const fallback = () => new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      // 页面全局是 user-select:none，这里显式放开，避免影响 execCommand 的选区
+      ta.style.webkitUserSelect = 'text';
+      ta.style.userSelect = 'text';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand 复制失败'));
+    });
+
+    // 优先用异步剪贴板 API；失败（含 NotAllowedError）自动回退
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(fallback);
+    }
+    return fallback();
+  }
+
+  document.querySelectorAll('.pane').forEach((pane) => {
+    const head = pane.querySelector('.pane-head');
+    const pre  = pane.querySelector('pre');
+    if (!head || !pre) return;
+
+    const sp = document.createElement('span');
+    sp.className = 'spacer';
+    head.appendChild(sp);
+
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.type = 'button';
+    btn.textContent = '复制';
+    head.appendChild(btn);
+
+    let timer = null;
+    btn.addEventListener('click', () => {
+      // 每次点击时读取，保证拿到的是当前内容（切换动效后代码块会变）
+      copyText(pre.textContent).then(() => {
+        btn.textContent = '已复制';
+        btn.classList.add('done');
+        btn.classList.remove('fail');
+      }).catch(() => {
+        btn.textContent = '复制失败';
+        btn.classList.add('fail');
+        btn.classList.remove('done');
+      }).finally(() => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          btn.textContent = '复制';
+          btn.classList.remove('done', 'fail');
+        }, 1600);
+      });
+    });
+  });
+
+  /* ---------- 明暗主题切换 ---------- */
+  const themeBtn  = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeText = document.getElementById('themeText');
+
+  function syncThemeBtn() {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    // 图标与文字表示「点了会切到哪」
+    themeIcon.textContent = light ? '☾' : '☀';
+    themeText.textContent = light ? '深色' : '浅色';
+  }
+
+  themeBtn.addEventListener('click', () => {
+    const now = document.documentElement.getAttribute('data-theme');
+    const next = now === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('cursorkit-theme', next); } catch (e) {}
+    syncThemeBtn();
+  });
+
+  syncThemeBtn();
+
+  /* ---------- 滚动淡入 ---------- */
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    }
+  }, { rootMargin: '0px 0px -12% 0px' });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  /* ---------- 启动 ---------- */
+  apply(TAGS[0]);
+</script>
+</body>
+</html>
