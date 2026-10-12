@@ -492,6 +492,8 @@
     <nav class="nav-links">
       <a href="#why">为什么用它</a>
       <a href="#start">快速开始</a>
+      <a href="#npm">npm 安装</a>
+      <a href="#extension">浏览器扩展</a>
       <a href="./show.html">纯净展示页</a>
       <button class="theme-btn" id="themeBtn" type="button" aria-label="切换明暗主题">
         <span class="ic" id="themeIcon">◐</span><span id="themeText">浅色</span>
@@ -659,27 +661,96 @@ fx.cursorEnabled = <span class="k">true</span>;    <span class="c">// 开</span>
 <span class="k">&lt;cursor-snow</span> :no-cursor=<span class="s">"!cursorOn"</span><span class="k"> /&gt;</span></pre>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ---------------- npm 安装 ---------------- -->
+<section id="npm">
+  <div class="wrap layer">
+    <div class="reveal">
+      <div class="sec-label">npm</div>
+      <h2>从 npm 安装</h2>
+      <p class="sec-desc">
+        装进项目后，<b>每个动效是独立文件</b> —— 引哪个就只加载哪个，
+        25 套不会一起进来；需要全部时再引总入口 <code>registerAll()</code>。
+      </p>
+    </div>
+
+    <div class="install reveal">
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> 安装</div>
+<pre>npm i cursorkit-effects</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-head"><span class="d"></span> 引入</div>
+<pre><span class="k">import</span> <span class="s">'cursorkit-effects/src/effects/snow.js'</span>;
+
+<span class="k">&lt;cursor-snow&gt;&lt;/cursor-snow&gt;</span></pre>
+      </div>
+    </div>
 
     <div class="install reveal" style="margin-top:16px">
       <div class="pane">
         <div class="pane-head"><span class="d"></span> Vue 3</div>
 <pre><span class="k">&lt;script</span> setup<span class="k">&gt;</span>
-<span class="k">import</span> <span class="s">'cursorkit/src/effects/snow.js'</span>;
+<span class="k">import</span> <span class="s">'cursorkit-effects/src/effects/snow.js'</span>;
 <span class="k">&lt;/script&gt;</span>
 <span class="k">&lt;template&gt;</span>
   <span class="k">&lt;cursor-snow /&gt;</span>
 <span class="k">&lt;/template&gt;</span></pre>
       </div>
       <div class="pane">
-        <div class="pane-head"><span class="d"></span> Next.js</div>
-<pre><span class="c">// 必须禁用 SSR：组件依赖 window</span>
-<span class="k">const</span> Fx = dynamic(
-  () =&gt; <span class="k">import</span>(<span class="s">'cursorkit/src/effects/snow.js'</span>),
-  { ssr: <span class="k">false</span> }
-);
+        <div class="pane-head"><span class="d"></span> React</div>
+<pre><span class="k">import</span> <span class="s">'cursorkit-effects/src/effects/snow.js'</span>;
 
-<span class="k">&lt;Fx /&gt;</span></pre>
+<span class="k">export default function</span> App() {
+  <span class="k">return</span> <span class="k">&lt;cursor-snow /&gt;</span>;
+}</pre>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- 浏览器扩展 ---------------- -->
+<section id="extension">
+  <div class="wrap layer">
+    <div class="reveal">
+      <div class="sec-label">Extension</div>
+      <h2>装成浏览器扩展</h2>
+      <p class="sec-desc">
+        不想改一行代码就走这条 —— 装个扩展，访问到的每个页面都自动带上动效。
+        Edge 与 Chrome 通用，同一套 MV3。
+      </p>
+    </div>
+
+    <div class="grid reveal">
+      <div class="card">
+        <div class="ico">◎</div>
+        <h3>25 套都在弹窗里</h3>
+        <p>点工具栏图标切换效果，<b>主题光标</b>与<b>滚轮动效</b>可单独开关。设置存在 <code>chrome.storage.sync</code>，跟着浏览器账号同步。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⌂</div>
+        <h3>按站点启用</h3>
+        <p>弹窗里的「在本站启用」按域名判断 —— 只想在某个站点看效果，不必全局打开。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⛨</div>
+        <h3>只申请两个权限</h3>
+        <p>只有 <code>storage</code>（存效果与开关）和 <code>tabs</code>（读当前标签页域名，用于「在本站启用」）。没有申请任何网络、脚本注入或内容拦截相关的权限。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⬚</div>
+        <h3>和网页端同一份代码</h3>
+        <p>扩展直接打包仓库根的 <code>src/</code>，25 套动效不是两套实现，改一处两边一起变。</p>
+      </div>
+    </div>
+
+    <div class="cta-row reveal" style="margin-top:26px">
+      <a class="cta" href="https://github.com/PC2005-cloud/cursorkit/releases/latest" target="_blank" rel="noopener noreferrer">
+        <span class="cta-t">下载最新构建</span>
+        <span class="cta-d">解压后在扩展页点「加载解压缩的扩展」，Edge 与 Chrome 通用</span>
+      </a>
     </div>
   </div>
 </section>
