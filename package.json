@@ -1,0 +1,50 @@
+{
+  "name": "cursorkit-effects",
+  "version": "0.1.0",
+  "description": "25 套鼠标光标动效，封装为零依赖 Web Component。原生 Canvas 绘制，一行 import 接入，Vue / React / Next.js 与纯 HTML 通吃。",
+  "type": "module",
+  "license": "MIT",
+  "author": "pc2005",
+  "homepage": "https://cursor.lxpavilion.top/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PC2005-cloud/cursorkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PC2005-cloud/cursorkit/issues"
+  },
+  "keywords": [
+    "cursor",
+    "cursor-effect",
+    "mouse",
+    "canvas",
+    "web-component",
+    "custom-element",
+    "animation",
+    "effects",
+    "zero-dependency",
+    "vanilla-js"
+  ],
+  "main": "./src/effects/index.js",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "./src/effects/*.js"
+  ],
+  "exports": {
+    ".": "./src/effects/index.js",
+    "./effects": "./src/effects/index.js",
+    "./effects/*.js": "./src/effects/*.js",
+    "./effects/*": "./src/effects/*.js",
+    "./core/*.js": "./src/core/*.js",
+    "./core/*": "./src/core/*.js",
+    "./src/effects/*.js": "./src/effects/*.js",
+    "./src/effects/*": "./src/effects/*.js",
+    "./src/core/*.js": "./src/core/*.js",
+    "./src/core/*": "./src/core/*.js",
+    "./package.json": "./package.json"
+  }
+}
