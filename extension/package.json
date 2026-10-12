@@ -1,0 +1,17 @@
+{
+  "name": "cursorkit-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CursorKit 浏览器扩展（Edge / Chrome）：把仓库根 src/ 的 25 套光标动效装进扩展",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build-extension.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "check": "node tools/check-extension.mjs",
+    "test": "node tools/extension-test.mjs",
+    "verify": "npm run build && npm run check && npm run test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

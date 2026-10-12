@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>CursorKit</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="icons/icon48.png" alt="" width="26" height="26">
+      <div>
+        <h1>CursorKit</h1>
+        <p id="host">—</p>
+      </div>
+    </div>
+    <label class="switch" title="总开关">
+      <input type="checkbox" id="enabled">
+      <span class="track"><span class="knob"></span></span>
+    </label>
+  </header>
+
+  <section id="panel">
+    <div class="label">当前效果</div>
+    <div class="grid" id="grid"></div>
+
+    <div class="options">
+      <label class="opt">
+        <input type="checkbox" id="cursor">
+        <span>主题光标</span>
+      </label>
+      <label class="opt">
+        <input type="checkbox" id="wheel">
+        <span>滚轮动效</span>
+      </label>
+      <label class="opt">
+        <input type="checkbox" id="site">
+        <span>在本站启用</span>
+      </label>
+    </div>
+
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

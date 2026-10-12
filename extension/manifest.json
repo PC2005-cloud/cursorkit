@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "CursorKit — 鼠标光标动效",
+  "version": "1.0.0",
+  "description": "给你的页面装上会呼吸的光标：25 套零依赖鼠标光标动效，可选主题光标与滚轮响应。",
+  "minimum_chrome_version": "111",
+
+  "permissions": ["storage", "tabs"],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CursorKit"
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["effects.js"],
+      "run_at": "document_idle",
+      "all_frames": false,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

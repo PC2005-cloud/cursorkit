@@ -1,0 +1,15 @@
+﻿# 依赖
+node_modules/
+
+# 扩展构建产物（由 extension/npm run build 生成，不入库）
+extension/dist/
+extension/*.zip
+
+# 本地调试用的临时目录（探针、冒烟页、截图）
+.probe/
+.smoke/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.log

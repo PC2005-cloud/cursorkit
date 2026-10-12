@@ -1,0 +1,130 @@
+name: 构建扩展并发布
+
+# 每次推送到 main 自动构建 zip 并发布 release。
+# release 名称固定，标签用提交 SHA，所以 release 页永远指向最新提交。
+on:
+  push:
+    branches: [main]
+  # 允许在 Actions 页面手动触发
+  workflow_dispatch:
+
+# 默认权限是 read，创建 release 必须显式要 write
+permissions:
+  contents: write
+
+# 同一分支的旧构建自动取消，避免并发推送时互相覆盖 release
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # release 名称与标签都固定（改这里即可改名）
+  RELEASE_NAME: CursorKit 扩展最新构建
+  RELEASE_TAG: latest
+  EXT_DIR: extension
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          # 用完整历史，release 才能关联到正确的提交
+          fetch-depth: 0
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 扩展是自包含的 npm 项目，仓库根本身不需要依赖
+      - name: 安装扩展依赖
+        working-directory: ${{ env.EXT_DIR }}
+        run: npm ci
+
+      - name: 构建扩展
+        working-directory: ${{ env.EXT_DIR }}
+        run: npm run build
+
+      - name: 校验产物
+        working-directory: ${{ env.EXT_DIR }}
+        run: npm run check
+
+      # manifest.json 必须位于压缩包根目录，不能套一层 dist/
+      # 用 -j 只打包目录内容，保留 icons/ 子目录结构
+      - name: 打包 zip
+        working-directory: ${{ env.EXT_DIR }}
+        run: |
+          ZIP_NAME="cursorkit-extension-${GITHUB_SHA::7}.zip"
+          (cd dist && zip -r "../${ZIP_NAME}" . -x '.*')
+          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+          echo "打包完成：${ZIP_NAME}"
+          unzip -l "${ZIP_NAME}"
+
+      - name: 确认 manifest 在压缩包根目录
+        working-directory: ${{ env.EXT_DIR }}
+        run: |
+          if ! unzip -l "${ZIP_NAME}" | grep -qE '(^| )manifest\.json$'; then
+            echo "::error::manifest.json 不在压缩包根目录，扩展无法加载"
+            exit 1
+          fi
+          echo "manifest.json 位置正确"
+
+      # 名称固定的 release：每次先删掉旧的，再以本次提交为标签重建。
+      # 这样 release 页上永远只有一条，且始终指向最新提交。
+      - name: 发布 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 删掉同名 release（--cleanup-tag 同时删除它的标签）
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+            --json tagName,name \
+            --jq ".[] | select(.name == \"${RELEASE_NAME}\") | .tagName" |
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            echo "删除旧 release: ${tag}"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          done
+
+          # 说明用 here-doc 生成：YAML 里缩进续行会给每行加前导空格，
+          # markdown 会把它们渲染成代码块，所以不能直接写在 --notes 里。
+          NOTES=$(cat <<EOF
+          自动构建，对应提交 [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})。
+
+          ## 安装
+
+          1. 下载下面的 \`${ZIP_NAME}\`
+          2. 解压到任意目录
+          3. 打开 \`edge://extensions\`（Chrome 为 \`chrome://extensions\`）
+          4. 打开「开发人员模式」
+          5. 点「加载解压缩的扩展」，选择解压出来的目录
+
+          ## 本次产物
+
+          | 文件 | 说明 |
+          |---|---|
+          | \`effects.js\` | 主世界：25 套动效本体 |
+          | \`content.js\` | 隔离世界：配置桥 |
+          | \`manifest.json\` | MV3 清单 |
+          EOF
+          )
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$RELEASE_NAME" \
+            --target "$GITHUB_SHA" \
+            --latest \
+            --notes "$NOTES" \
+            "${EXT_DIR}/${ZIP_NAME}"
+
+      - name: 输出结果
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "### 构建完成" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 提交：\`${GITHUB_SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 产物：\`${ZIP_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release：[${{ env.RELEASE_NAME }}](${{ github.server_url }}/${{ github.repository }}/releases/latest)" >> "$GITHUB_STEP_SUMMARY"
