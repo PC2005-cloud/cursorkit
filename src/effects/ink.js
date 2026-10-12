@@ -12,7 +12,7 @@
  * 原型监听 mousemove / mousedown / mouseup，因此声明 inputFamily = 'mouse'。
  * 原型用 var 声明的全局量全部改成 setup() 返回的 state 字段，多实例互不干扰。
  *
- * 与原型的差异（详见交付回报）：
+ * 与原型的差异：
  *   1. 原型的 updateMouse() 用「原始逐帧位移」算 mouse.vx / mouse.vy，
  *      与基类 input.vx/vy（1-exp(-25dt) 平滑）语义不同，这里在 update() 里
  *      自己复现原始速度（state.rawVx / rawVy），连原型的 6000 钳制与
@@ -21,7 +21,7 @@
  *      参考点对齐到当前位置）用 state.has 复现；
  *   3. 原型 981 行 burstPaper 里「颜色侵入」用了上一轮循环的 d.R（应为 dd.R），
  *      已修正；
- *   4. 原型的死代码 trailTick、fuseGrid 未移植（详见回报）。
+ *   4. 原型的死代码 trailTick、fuseGrid 未移植。
  */
 
 import { CursorEffectElement } from '../core/base.js';

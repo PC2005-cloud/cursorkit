@@ -19,7 +19,7 @@
  * 它只用「逐事件位移距离 dist」以及它的 EMA（smoothSpeed，第 1383 行）。
  * 基类平滑后的 input.vx / vy / speed 在本动效中一次都没有用到。
  *
- * 与原型的差异（详见交付回报）：
+ * 与原型的差异：
  *   1. 删掉 render() 开头的整屏铺底（第 1492~1493 行的 fillStyle + fillRect），改为 clearRect；
  *   2. 原型第 1414 行引用了未定义的 CONFIG.shortArcInterval，慢速移动时抛 TypeError、
  *      短电弧完全失效；这里按快速分支 0.08 的节奏外推补了一组区间（见 CONFIG 末尾）；
