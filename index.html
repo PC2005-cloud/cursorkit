@@ -494,6 +494,7 @@
       <a href="#start">快速开始</a>
       <a href="#npm">npm 安装</a>
       <a href="#extension">浏览器扩展</a>
+      <a href="#dsh">DSH 插件</a>
       <a href="./show.html">纯净展示页</a>
       <button class="theme-btn" id="themeBtn" type="button" aria-label="切换明暗主题">
         <span class="ic" id="themeIcon">◐</span><span id="themeText">浅色</span>
@@ -750,6 +751,50 @@ fx.cursorEnabled = <span class="k">true</span>;    <span class="c">// 开</span>
       <a class="cta" href="https://github.com/PC2005-cloud/cursorkit/releases/latest" target="_blank" rel="noopener noreferrer">
         <span class="cta-t">下载最新构建</span>
         <span class="cta-d">解压后在扩展页点「加载解压缩的扩展」，Edge 与 Chrome 通用</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- DSH 插件 ---------------- -->
+<section id="dsh">
+  <div class="wrap layer">
+    <div class="reveal">
+      <div class="sec-label">Harness Plugin</div>
+      <h2>装进 DeepSeek Harness</h2>
+      <p class="sec-desc">
+        装进 Harness 的 Web 界面，<b>25 套动效覆盖整个窗口</b> —— 面板、弹出菜单与对话框之上都在内。
+        不用改一行代码，在设置里就能换。
+      </p>
+    </div>
+
+    <div class="grid reveal">
+      <div class="card">
+        <div class="ico">⚙</div>
+        <h3>25 套在设置里切换</h3>
+        <p>装完在<b>设置 → 通用 → 光标动效</b>里选，即时生效，选择会被记住。</p>
+      </div>
+      <div class="card">
+        <div class="ico">▤</div>
+        <h3>浮在对话框之上</h3>
+        <p>Harness 的对话框与菜单是 <code>z-index</code> 1000–1100 的普通浮层。插件让光标层走浏览器 <b>top layer</b>，弹窗打开时不会被盖住。</p>
+      </div>
+      <div class="card">
+        <div class="ico">⌘</div>
+        <h3>零运行时依赖</h3>
+        <p>25 套动效在构建期就内联进产物，装完的包里没有任何第三方依赖，也不需要联网拉取。</p>
+      </div>
+      <div class="card">
+        <div class="ico">◎</div>
+        <h3>和网页端同一份代码</h3>
+        <p>动效取自同一个 npm 包 <code>cursorkit-effects</code>，不是为插件另写一套实现。</p>
+      </div>
+    </div>
+
+    <div class="cta-row reveal" style="margin-top:26px">
+      <a class="cta" href="https://www.npmjs.com/package/dsh-cursorkit" target="_blank" rel="noopener noreferrer">
+        <span class="cta-t">查看 npm 包</span>
+        <span class="cta-d">dsh plugin --profile &lt;profile&gt; add dsh-cursorkit</span>
       </a>
     </div>
   </div>

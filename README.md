@@ -99,6 +99,16 @@ export default function CursorFx() {
 
 Edge / Chrome 通用，详细请看 [`extension/README.md`](./extension/README.md)。
 
+## DSH 插件
+
+装进 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 Web 界面，25 种动效铺满整个窗口，在「设置 → 通用」里切换。发布在 npm，零运行时依赖。
+
+```bash
+dsh plugin --profile <profile> add dsh-cursorkit
+```
+
+也可以在侧栏的「插件」面板里添加 `dsh-cursorkit`。详细请看 [`dsh-plugin/README.md`](./dsh-plugin/README.md)。
+
 <div align="center">
 
 | | | | | | |
