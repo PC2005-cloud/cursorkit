@@ -107,7 +107,7 @@ Edge / Chrome 通用，详细请看 [`extension/README.md`](./extension/README.m
 dsh plugin --profile <profile> add dsh-cursorkit
 ```
 
-也可以在侧栏的「插件」面板里添加 `dsh-cursorkit`。详细请看 [`dsh-plugin/README.md`](./dsh-plugin/README.md)。
+也可以在侧栏的「插件」面板里添加 `dsh-cursorkit`。详细请看 [`plugins/dsh-cursorkit/README.md`](./plugins/dsh-cursorkit/README.md)。
 
 <div align="center">
 

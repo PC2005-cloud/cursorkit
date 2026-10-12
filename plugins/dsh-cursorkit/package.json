@@ -1,10 +1,24 @@
 {
   "name": "dsh-cursorkit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "把 CursorKit 的光标动效铺进 DeepSeek Harness 的 Web 界面。",
   "license": "MIT",
   "homepage": "https://cursor.lxpavilion.top/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PC2005-cloud/cursorkit.git",
+    "directory": "plugins/dsh-cursorkit"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cursor",
+    "cursor-effect",
+    "web-components",
+    "zero-dependency"
+  ],
   "icon": "./icon.svg",
   "exports": {
     ".": "./lib/index.js",
