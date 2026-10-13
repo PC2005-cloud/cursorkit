@@ -1,6 +1,6 @@
 {
   "name": "dsh-cursorkit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "把 CursorKit 的光标动效铺进 DeepSeek Harness 的 Web 界面。",
   "license": "MIT",
@@ -36,6 +36,9 @@
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",
     "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
@@ -52,6 +55,15 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-alpha.2": "unknown",
+        "0.2.1-alpha.1": "unknown",
+        "0.2.0-rc.2": "compatible",
+        "0.2.0-rc.1": "unknown",
+        "0.1.7-rc.2": "unknown"
+      }
     },
     "client": {
       "platform": "web",
